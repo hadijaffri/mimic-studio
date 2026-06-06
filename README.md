@@ -1,0 +1,94 @@
+# Mimic Studio
+
+Teach a machine your **hand motions**, **voice**, and **device movement** — directly from your browser — then export a clean, labeled, multimodal dataset to train AI and robots.
+
+Everything runs **on-device**. Nothing is uploaded anywhere unless *you* export the JSON file.
+
+![status](https://img.shields.io/badge/runtime-browser-5eead4) ![ml](https://img.shields.io/badge/learning-on--device%20kNN-7c9cff) ![deps](https://img.shields.io/badge/build-none%20(single%20file)-34d399)
+
+---
+
+## What it actually does
+
+| Modality | Tech | What you get |
+|---|---|---|
+| **Hand tracking** | [MediaPipe Tasks Vision](https://ai.google.dev/edge/mediapipe) `HandLandmarker` | 21 3D landmarks per hand, up to 2 hands, in real time |
+| **Live learning** | k-nearest-neighbors over normalized landmark vectors | Records gestures into categories and classifies your live hand instantly |
+| **Speech** | Web Speech API | Live transcript; final phrases tagged to a category |
+| **Movement** | Device Motion / Orientation API | Accelerometer + gyroscope snapshots (best on a phone) |
+| **Dataset** | JSON export/import + `localStorage` | One labeled, multimodal file ready for a training pipeline |
+
+The hand features are **translation- and scale-invariant** (re-centered on the wrist and normalized), so the model generalizes across where your hand is in frame and how close you are to the camera.
+
+---
+
+## Honest scope (read this)
+
+- **"Unlimited categories."** The app puts no cap on how many gesture categories you create — add as many as you can teach. But there is no meaningful set of *700,000* distinct hand gestures, and a from-scratch model would need millions of labeled examples to support that. For reference, ImageNet uses ~1,000 classes. **Start with a handful of well-chosen categories and grow.**
+- **k-NN is "instant training" but simple.** It's perfect for live demos and small/medium datasets and needs zero training time. For a production robot policy, export the dataset and train a real model (see below).
+- **Camera/mic need a secure context.** Use `https://` (GitHub Pages) or `http://localhost`. Opening the file directly with `file://` will block the camera.
+- **Claude artifact caveat.** The single HTML file works as a Claude artifact, but the artifact sandbox often blocks camera/microphone. For full use, run it from GitHub Pages or localhost.
+
+---
+
+## Run it
+
+### Option A — locally
+```bash
+# from this folder; any static server works
+python3 -m http.server 8000
+# then open http://localhost:8000
+```
+
+### Option B — GitHub Pages
+Push this repo, then in **Settings → Pages** set the source to the `main` branch (root). Your app goes live at `https://<user>.github.io/<repo>/`.
+
+### Option C — Claude artifact
+Open [claude.ai](https://claude.ai), paste the contents of `index.html`, and ask Claude to render it as an HTML artifact. (Camera may be sandboxed — see caveat above.)
+
+---
+
+## Dataset format
+
+`Export dataset (.json)` produces:
+
+```jsonc
+{
+  "meta": { "app": "Mimic Studio", "version": 1, "exported": "…", "schema": "…" },
+  "gestures": {
+    "grab":  [ { "vec": [/* 63 numbers: 21 × (x,y,z) normalized */], "hand": "Right", "t": 1733000000000 } ],
+    "open":  [ /* … */ ]
+  },
+  "speech": [ { "text": "pick it up", "label": "grab", "t": 1733000000000 } ],
+  "motion": [ { "acc": {"x":..,"y":..,"z":..}, "rot": {...}, "ori": {...}, "label": "grab", "t": ... } ]
+}
+```
+
+### From dataset → real model (example)
+```python
+import json, numpy as np
+from sklearn.neural_network import MLPClassifier
+
+data = json.load(open("mimic-dataset.json"))
+X, y = [], []
+for label, samples in data["gestures"].items():
+    for s in samples:
+        X.append(s["vec"]); y.append(label)
+X, y = np.array(X), np.array(y)
+
+clf = MLPClassifier(hidden_layer_sizes=(128, 64), max_iter=500).fit(X, y)
+print("classes:", clf.classes_)
+```
+From there it's standard supervised learning / behavior cloning — feed the time-stamped, labeled samples into whatever policy or classifier your robot stack uses.
+
+---
+
+## How it works (1 paragraph)
+
+Each video frame, MediaPipe returns 21 hand landmarks. They're re-centered on the wrist and scaled by the farthest landmark distance to make a 63-dimensional, position/size-invariant vector. In **Collect** mode those vectors are stored under the active category. In **Recognize** mode the live vector is compared (Euclidean distance) to every stored sample; the 5 nearest vote, inverse-distance-weighted, and the winner is shown with a confidence score. Speech and motion are captured separately and tagged with the same category labels so a single command can span all three modalities.
+
+---
+
+## License
+
+MIT — see [LICENSE](LICENSE).

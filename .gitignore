@@ -1,0 +1,13 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# exported datasets (don't commit personal training data)
+mimic-dataset-*.json
+*.local.json
+
+# logs
+*.log

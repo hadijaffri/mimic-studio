@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mimic Studio — Hand · Speech · Motion data for robot learning</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0e1422; --line:#1f2a3d;
+    --text:#e6edf7; --muted:#8da2c0; --accent:#5eead4; --accent2:#7c9cff;
+    --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 800px at 80% -10%,#15233f 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{padding:22px 22px 8px;max-width:1300px;margin:0 auto}
+  h1{font-size:22px;margin:0;letter-spacing:.3px}
+  h1 .dot{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  main{max-width:1300px;margin:0 auto;padding:16px 22px 60px;
+    display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .span7{grid-column:span 7}.span5{grid-column:span 5}
+  .span6{grid-column:span 6}.span12{grid-column:span 12}
+  @media(max-width:980px){.panel{grid-column:span 12 !important}}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+  .ph h2{font-size:14px;margin:0;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill.on{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
+  .pill.live{color:#241a02;background:var(--warn);border-color:var(--warn);font-weight:600}
+  .pill.err{color:#2a0c12;background:var(--bad);border-color:var(--bad);font-weight:600}
+  .stage{position:relative;aspect-ratio:4/3;background:#05080f;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+  .stage video{object-fit:cover}
+  .stage .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);text-align:center;padding:24px;font-size:14px}
+  .pred{position:absolute;left:10px;bottom:10px;background:rgba(5,8,15,.72);
+    backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:10px;padding:8px 12px;transform:none}
+  .pred b{font-size:20px;color:var(--accent)}
+  .pred small{color:var(--muted)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);
+    background:#16203a;color:var(--text);padding:9px 14px;transition:.15s}
+  button:hover{border-color:var(--accent2)}
+  button.primary{background:var(--accent);color:#04211b;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  button.danger{border-color:#5b2330;color:var(--bad)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  input[type=text]{font:inherit;background:#0b1322;border:1px solid var(--line);color:var(--text);
+    padding:9px 12px;border-radius:10px;min-width:160px;flex:1}
+  input[type=text]:focus{outline:none;border-color:var(--accent2)}
+  .mode{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .mode button{border:0;border-radius:0;background:transparent;padding:8px 14px}
+  .mode button.sel{background:var(--accent2);color:#06122e;font-weight:600}
+  .labels{margin-top:14px;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto}
+  .lab{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:#0c1322;border:1px solid var(--line);border-radius:9px;padding:7px 10px}
+  .lab .nm{font-weight:600}
+  .lab .ct{color:var(--muted);font-size:12px}
+  .lab.active{border-color:var(--accent)}
+  .bar{height:5px;border-radius:3px;background:#0b1322;overflow:hidden;margin-top:4px;flex:1}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .readout{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+  .met{background:#0c1322;border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .met .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .met .v{font-size:16px;font-variant-numeric:tabular-nums}
+  .transcript{margin-top:10px;background:#0b1322;border:1px solid var(--line);border-radius:10px;
+    padding:10px 12px;min-height:64px;max-height:140px;overflow:auto}
+  .transcript .interim{color:var(--muted)}
+  .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .stat .met .v{font-size:20px}
+  .note{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5}
+  a{color:var(--accent2)}
+  .kbd{font:12px ui-monospace,Menlo,Consolas,monospace;background:#0b1322;border:1px solid var(--line);
+    border-radius:6px;padding:1px 6px;color:var(--muted)}
+  footer{max-width:1300px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mimic Studio <span class="dot">●</span></h1>
+  <div class="sub">Teach a machine your hands, voice, and motion — then export a labeled dataset to train AI &amp; robots. Everything runs on-device in your browser.</div>
+</header>
+
+<main>
+  <!-- CAMERA / HANDS -->
+  <section class="panel span7">
+    <div class="ph"><h2>Camera · Hand tracking</h2><span id="camPill" class="pill">idle</span></div>
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="hint" id="camHint">Click <b style="color:var(--text)">&nbsp;Start camera&nbsp;</b> to begin. 21 landmarks per hand are tracked in real time.</div>
+      <div class="pred" id="pred" style="display:none"><div><b id="predLabel">—</b></div><small id="predConf"></small></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="startCam">Start camera</button>
+      <button class="ghost" id="stopCam" disabled>Stop</button>
+      <span class="pill" id="fpsPill">— fps</span>
+      <span class="pill" id="handsPill">0 hands</span>
+    </div>
+    <div class="note">Camera/mic need a secure context: open via <span class="kbd">https</span> (GitHub Pages) or <span class="kbd">http://localhost</span>. Inside a Claude artifact the sandbox may block the camera — that's expected; use Pages/localhost for full use.</div>
+  </section>
+
+  <!-- GESTURES -->
+  <section class="panel span5">
+    <div class="ph"><h2>Gestures · Categories</h2><span id="catPill" class="pill">0 categories</span></div>
+    <div class="row">
+      <input type="text" id="labelInput" placeholder="Category name (e.g. grab, open, point)…" />
+      <button id="addLabel">Add</button>
+    </div>
+    <div class="row">
+      <div class="mode" id="modeSwitch">
+        <button data-mode="collect" class="sel">Collect</button>
+        <button data-mode="recognize">Recognize</button>
+      </div>
+      <button class="primary" id="recordBtn" disabled>Hold to record ●</button>
+      <button class="ghost" id="oneShot" disabled>+1 sample</button>
+    </div>
+    <div class="labels" id="labelList"></div>
+    <div class="note">Pick a category, show the gesture, and <b>hold</b> to capture many samples fast. Switch to <b>Recognize</b> and it classifies your live hand with a k-nearest-neighbor model trained on what you recorded. Unlimited categories — add as many as you can teach.</div>
+  </section>
+
+  <!-- SPEECH -->
+  <section class="panel span6">
+    <div class="ph"><h2>Speech pattern recognition</h2><span id="micPill" class="pill">off</span></div>
+    <div class="row">
+      <button class="primary" id="startMic">Start listening</button>
+      <button class="ghost" id="stopMic" disabled>Stop</button>
+      <button id="capturePhrase" disabled>Save phrase → current category</button>
+    </div>
+    <div class="transcript" id="transcript"><span class="interim">Transcript will appear here…</span></div>
+    <div class="note">Uses the browser Web Speech API. Final phrases can be tagged to the active category so a spoken command and a gesture share one label — useful for multimodal robot commands.</div>
+  </section>
+
+  <!-- MOTION -->
+  <section class="panel span6">
+    <div class="ph"><h2>Movement sensing</h2><span id="motionPill" class="pill">off</span></div>
+    <div class="row">
+      <button class="primary" id="enableMotion">Enable motion sensors</button>
+      <button id="recordMotion" disabled>Snapshot → current category</button>
+    </div>
+    <div class="readout">
+      <div class="met"><div class="k">Accel X/Y/Z</div><div class="v" id="acc">— — —</div></div>
+      <div class="met"><div class="k">Rotation α/β/γ</div><div class="v" id="rot">— — —</div></div>
+      <div class="met"><div class="k">Orientation</div><div class="v" id="ori">— — —</div></div>
+    </div>
+    <div class="note">Reads accelerometer / gyroscope (best on a phone). iOS asks permission on tap. Snapshots are timestamped and tagged to the active category.</div>
+  </section>
+
+  <!-- DATASET -->
+  <section class="panel span12">
+    <div class="ph"><h2>Dataset</h2><span class="pill" id="savedPill">not saved</span></div>
+    <div class="stat">
+      <div class="met"><div class="k">Categories</div><div class="v" id="sCats">0</div></div>
+      <div class="met"><div class="k">Gesture samples</div><div class="v" id="sGest">0</div></div>
+      <div class="met"><div class="k">Speech phrases</div><div class="v" id="sSpeech">0</div></div>
+      <div class="met"><div class="k">Motion snapshots</div><div class="v" id="sMotion">0</div></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="exportBtn">Export dataset (.json)</button>
+      <button id="importBtn">Import .json</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" />
+      <button class="ghost" id="saveBtn">Save to browser</button>
+      <button class="danger" id="clearBtn">Clear all</button>
+    </div>
+    <div class="note">The export is a single labeled, multimodal JSON file (normalized hand-landmark vectors + speech + motion, all timestamped). That file is the artifact you feed into a real training pipeline — e.g. behavior cloning for a robot, or a gesture classifier. <b>Honest note:</b> a from-scratch model needs many samples per category; start with a handful of well-chosen categories and grow.</div>
+  </section>
+</main>
+
+<footer>
+  Mimic Studio · on-device · no data leaves your machine unless you export it. Built with MediaPipe Tasks Vision, the Web Speech API, and the Device&nbsp;Motion API.
+</footer>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver, DrawingUtils }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/vision_bundle.mjs";
+
+/* ---------- state ---------- */
+const DB = { gestures:{}, speech:[], motion:[] };   // gestures: {label:[{vec,hand,t}]}
+let activeLabel = null;
+let mode = "collect";
+let recording = false;
+const LSKEY = "mimic-studio-v1";
+
+/* ---------- elements ---------- */
+const $ = id => document.getElementById(id);
+const video=$("video"), overlay=$("overlay"), ctx=overlay.getContext("2d");
+
+/* ---------- MediaPipe ---------- */
+let handLandmarker=null, camStream=null, running=false, lastVideoTime=-1;
+let frames=0, fpsT=performance.now();
+
+async function loadModel(){
+  $("camPill").textContent="loading model…";
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/wasm");
+  try{
+    handLandmarker = await HandLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        delegate:"GPU"},
+      runningMode:"VIDEO", numHands:2 });
+  }catch(e){ // GPU not available -> CPU
+    handLandmarker = await HandLandmarker.createFromOptions(vision,{
+      baseOptions:{modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+        delegate:"CPU"},
+      runningMode:"VIDEO", numHands:2 });
+  }
+}
+
+async function startCam(){
+  try{
+    if(!handLandmarker) await loadModel();
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640,height:480}});
+    video.srcObject = camStream;
+    await video.play();
+    overlay.width=video.videoWidth||640; overlay.height=video.videoHeight||480;
+    $("camHint").style.display="none";
+    $("camPill").textContent="live"; $("camPill").className="pill on";
+    $("startCam").disabled=true; $("stopCam").disabled=false;
+    running=true; loop();
+  }catch(e){
+    $("camPill").textContent="camera blocked"; $("camPill").className="pill err";
+    $("camHint").innerHTML="Camera unavailable: <b>"+(e.message||e.name)+"</b>.<br>Use https / localhost, and allow the camera.";
+    $("camHint").style.display="flex";
+  }
+}
+function stopCam(){
+  running=false;
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  video.srcObject=null; ctx.clearRect(0,0,overlay.width,overlay.height);
+  $("camPill").textContent="idle"; $("camPill").className="pill";
+  $("startCam").disabled=false; $("stopCam").disabled=true;
+  $("camHint").style.display="flex"; $("pred").style.display="none";
+}
+
+const drawing = new DrawingUtils(ctx);
+function loop(){
+  if(!running) return;
+  if(video.readyState>=2 && video.currentTime!==lastVideoTime){
+    lastVideoTime=video.currentTime;
+    const res = handLandmarker.detectForVideo(video, performance.now());
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+    const hands = res.landmarks||[];
+    $("handsPill").textContent = hands.length+" hand"+(hands.length===1?"":"s");
+    for(const lm of hands){
+      drawing.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS,{color:"#5eead4",lineWidth:3});
+      drawing.drawLandmarks(lm,{color:"#7c9cff",lineWidth:1,radius:3});
+    }
+    if(hands.length){
+      const vec = normalize(hands[0]);
+      const handed = res.handednesses?.[0]?.[0]?.categoryName || "?";
+      if(mode==="collect" && recording && activeLabel) addSample(activeLabel,vec,handed);
+      if(mode==="recognize") showPrediction(classify(vec));
+    } else if(mode==="recognize"){ $("pred").style.display="none"; }
+
+    frames++;
+    const now=performance.now();
+    if(now-fpsT>=500){ $("fpsPill").textContent=Math.round(frames*1000/(now-fpsT))+" fps"; frames=0; fpsT=now; }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- features + model (k-NN) ---------- */
+function normalize(lm){               // translation + scale invariant -> 63-vector
+  const w=lm[0]; const p=lm.map(q=>[q.x-w.x,q.y-w.y,q.z-w.z]);
+  let m=1e-6; for(const q of p){const d=Math.hypot(q[0],q[1],q[2]); if(d>m)m=d;}
+  const v=[]; for(const q of p) v.push(q[0]/m,q[1]/m,q[2]/m); return v;
+}
+function dist(a,b){let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);}
+function classify(vec,k=5){
+  const all=[];
+  for(const lab in DB.gestures) for(const s of DB.gestures[lab]) all.push({lab,d:dist(vec,s.vec)});
+  if(!all.length) return null;
+  all.sort((a,b)=>a.d-b.d);
+  const top=all.slice(0,Math.min(k,all.length)), votes={}; let total=0;
+  for(const t of top){const wgt=1/(t.d+1e-6); votes[t.lab]=(votes[t.lab]||0)+wgt; total+=wgt;}
+  let best=null,bw=-1; for(const l in votes) if(votes[l]>bw){bw=votes[l];best=l;}
+  return {label:best, confidence:bw/total};
+}
+function showPrediction(p){
+  const el=$("pred");
+  if(!p){el.style.display="none";return;}
+  el.style.display="block";
+  $("predLabel").textContent=p.label;
+  $("predConf").textContent=Math.round(p.confidence*100)+"% confidence";
+}
+
+/* ---------- categories + samples ---------- */
+function addLabel(name){
+  name=(name||"").trim(); if(!name) return;
+  if(!DB.gestures[name]) DB.gestures[name]=[];
+  activeLabel=name; $("labelInput").value="";
+  renderLabels(); refreshStats(); updateControls();
+}
+function addSample(label,vec,hand){
+  DB.gestures[label].push({vec,hand,t:Date.now()});
+  renderLabels(); refreshStats();
+}
+function renderLabels(){
+  const list=$("labelList"); list.innerHTML="";
+  const names=Object.keys(DB.gestures);
+  $("catPill").textContent=names.length+" categor"+(names.length===1?"y":"ies");
+  const max=Math.max(1,...names.map(n=>DB.gestures[n].length));
+  for(const n of names){
+    const c=DB.gestures[n].length;
+    const row=document.createElement("div");
+    row.className="lab"+(n===activeLabel?" active":"");
+    row.innerHTML=`<div style="flex:1;min-width:0">
+        <div class="nm">${esc(n)}</div>
+        <div class="bar"><i style="width:${Math.round(c/max*100)}%"></i></div></div>
+      <span class="ct">${c}</span>
+      <button class="ghost" data-pick="${esc(n)}">use</button>
+      <button class="danger" data-del="${esc(n)}">✕</button>`;
+    list.appendChild(row);
+  }
+}
+function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- speech ---------- */
+const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null, lastFinal="";
+function initSpeech(){
+  if(!SR){$("micPill").textContent="unsupported";$("micPill").className="pill err";$("startMic").disabled=true;return;}
+  rec=new SR(); rec.continuous=true; rec.interimResults=true; rec.lang="en-US";
+  rec.onresult=e=>{
+    let interim="",final="";
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) final+=r[0].transcript; else interim+=r[0].transcript;
+    }
+    if(final){lastFinal=final.trim();}
+    $("transcript").innerHTML=(lastFinal?esc(lastFinal)+" ":"")+'<span class="interim">'+esc(interim)+"</span>";
+  };
+  rec.onend=()=>{ if(micOn) rec.start(); };          // auto-restart while on
+  rec.onerror=e=>{ if(e.error==="not-allowed"){micOn=false;$("micPill").textContent="blocked";$("micPill").className="pill err";} };
+}
+let micOn=false;
+function startMic(){ if(!rec) return; micOn=true; rec.start();
+  $("micPill").textContent="listening"; $("micPill").className="pill live";
+  $("startMic").disabled=true; $("stopMic").disabled=false; $("capturePhrase").disabled=false; }
+function stopMic(){ micOn=false; if(rec) rec.stop();
+  $("micPill").textContent="off"; $("micPill").className="pill";
+  $("startMic").disabled=false; $("stopMic").disabled=true; $("capturePhrase").disabled=true; }
+
+/* ---------- motion ---------- */
+let motionOn=false, lastMotion={acc:null,rot:null,ori:null};
+async function enableMotion(){
+  try{
+    if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
+      const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted") throw new Error("permission denied");
+    }
+    window.addEventListener("devicemotion",onMotion);
+    window.addEventListener("deviceorientation",onOrient);
+    motionOn=true; $("motionPill").textContent="on"; $("motionPill").className="pill on";
+    $("recordMotion").disabled=false; $("enableMotion").disabled=true;
+  }catch(e){ $("motionPill").textContent=(e.message||"unavailable"); $("motionPill").className="pill err"; }
+}
+function onMotion(e){
+  const a=e.accelerationIncludingGravity||e.acceleration||{};
+  const r=e.rotationRate||{};
+  lastMotion.acc={x:a.x||0,y:a.y||0,z:a.z||0};
+  lastMotion.rot={alpha:r.alpha||0,beta:r.beta||0,gamma:r.gamma||0};
+  $("acc").textContent=fmt3(lastMotion.acc.x,lastMotion.acc.y,lastMotion.acc.z);
+  $("rot").textContent=fmt3(lastMotion.rot.alpha,lastMotion.rot.beta,lastMotion.rot.gamma);
+}
+function onOrient(e){ lastMotion.ori={alpha:e.alpha||0,beta:e.beta||0,gamma:e.gamma||0};
+  $("ori").textContent=fmt3(lastMotion.ori.alpha,lastMotion.ori.beta,lastMotion.ori.gamma); }
+const fmt3=(a,b,c)=>[a,b,c].map(n=>(+n).toFixed(1)).join("  ");
+
+/* ---------- dataset io ---------- */
+function refreshStats(){
+  const cats=Object.keys(DB.gestures).length;
+  const g=Object.values(DB.gestures).reduce((s,a)=>s+a.length,0);
+  $("sCats").textContent=cats; $("sGest").textContent=g;
+  $("sSpeech").textContent=DB.speech.length; $("sMotion").textContent=DB.motion.length;
+}
+function exportData(){
+  const blob=new Blob([JSON.stringify({
+    meta:{app:"Mimic Studio",version:1,exported:new Date().toISOString(),
+      schema:"gestures[label]=[{vec:63 normalized xyz, hand, t}]; speech=[{text,label,t}]; motion=[{acc,rot,ori,label,t}]"},
+    ...DB},null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="mimic-dataset-"+Date.now()+".json"; a.click();
+  URL.revokeObjectURL(a.href);
+}
+function importData(file){
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const d=JSON.parse(r.result);
+    DB.gestures=d.gestures||{}; DB.speech=d.speech||[]; DB.motion=d.motion||[];
+    activeLabel=Object.keys(DB.gestures)[0]||null;
+    renderLabels(); refreshStats(); updateControls();
+  }catch(e){ alert("Invalid JSON: "+e.message); } };
+  r.readAsText(file);
+}
+function save(){ try{ localStorage.setItem(LSKEY,JSON.stringify(DB));
+  $("savedPill").textContent="saved "+new Date().toLocaleTimeString(); $("savedPill").className="pill on";
+}catch(e){ $("savedPill").textContent="save failed (too big?)"; $("savedPill").className="pill err"; } }
+function load(){ try{ const s=localStorage.getItem(LSKEY); if(!s) return;
+  const d=JSON.parse(s); DB.gestures=d.gestures||{}; DB.speech=d.speech||[]; DB.motion=d.motion||[];
+  activeLabel=Object.keys(DB.gestures)[0]||null; $("savedPill").textContent="restored"; $("savedPill").className="pill on";
+}catch(e){} }
+
+/* ---------- controls / wiring ---------- */
+function updateControls(){
+  const has=!!activeLabel;
+  $("recordBtn").disabled=!(has&&running&&mode==="collect");
+  $("oneShot").disabled=!(has&&running&&mode==="collect");
+}
+$("startCam").onclick=startCam;
+$("stopCam").onclick=()=>{stopCam();updateControls();};
+$("addLabel").onclick=()=>addLabel($("labelInput").value);
+$("labelInput").addEventListener("keydown",e=>{if(e.key==="Enter")addLabel($("labelInput").value);});
+$("labelList").addEventListener("click",e=>{
+  const pick=e.target.dataset.pick, del=e.target.dataset.del;
+  if(pick){activeLabel=pick;renderLabels();updateControls();}
+  if(del){delete DB.gestures[del]; if(activeLabel===del)activeLabel=Object.keys(DB.gestures)[0]||null;
+    renderLabels();refreshStats();updateControls();}
+});
+$("modeSwitch").addEventListener("click",e=>{
+  const m=e.target.dataset.mode; if(!m)return; mode=m;
+  [...$("modeSwitch").children].forEach(b=>b.classList.toggle("sel",b.dataset.mode===m));
+  $("pred").style.display="none"; updateControls();
+});
+const press=v=>{recording=v; $("recordBtn").classList.toggle("primary",!v); $("recordBtn").textContent=v?"recording… ●":"Hold to record ●";};
+$("recordBtn").addEventListener("mousedown",()=>press(true));
+$("recordBtn").addEventListener("touchstart",e=>{e.preventDefault();press(true);});
+window.addEventListener("mouseup",()=>press(false));
+window.addEventListener("touchend",()=>press(false));
+$("oneShot").onclick=()=>{ if(activeLabel&&running){ /* one frame */ recording=true; setTimeout(()=>recording=false,60);} };
+$("startMic").onclick=startMic; $("stopMic").onclick=stopMic;
+$("capturePhrase").onclick=()=>{ if(lastFinal){ DB.speech.push({text:lastFinal,label:activeLabel||"(none)",t:Date.now()}); refreshStats(); } };
+$("enableMotion").onclick=enableMotion;
+$("recordMotion").onclick=()=>{ DB.motion.push({...lastMotion,label:activeLabel||"(none)",t:Date.now()}); refreshStats(); };
+$("exportBtn").onclick=exportData;
+$("importBtn").onclick=()=>$("importFile").click();
+$("importFile").onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); };
+$("saveBtn").onclick=save;
+$("clearBtn").onclick=()=>{ if(confirm("Delete all categories, speech and motion data?")){ DB.gestures={};DB.speech=[];DB.motion=[];activeLabel=null;renderLabels();refreshStats();updateControls();localStorage.removeItem(LSKEY);} };
+
+/* ---------- boot ---------- */
+initSpeech(); load(); renderLabels(); refreshStats(); updateControls();
+</script>
+</body>
+</html>
