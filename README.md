@@ -8,9 +8,13 @@ Everything runs **on-device**. Nothing is uploaded anywhere unless *you* export 
 
 ## 🔴 Live
 
-- **App (Vercel):** _deploying — link added below_
 - **App (GitHub Pages):** https://hadijaffri.github.io/mimic-studio/
+- **App (Vercel):** import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy** (auto-redeploys on every push).
 - **Repo:** https://github.com/hadijaffri/mimic-studio
+
+Want your own copy on Vercel in one click?
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/hadijaffri/mimic-studio)
 
 Anyone can open the link, record gestures, and **contribute them back** — see [Contributing](#contributing--the-shared-dataset).
 
