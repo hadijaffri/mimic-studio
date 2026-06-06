@@ -6,6 +6,14 @@ Everything runs **on-device**. Nothing is uploaded anywhere unless *you* export 
 
 ![status](https://img.shields.io/badge/runtime-browser-5eead4) ![ml](https://img.shields.io/badge/learning-on--device%20kNN-7c9cff) ![deps](https://img.shields.io/badge/build-none%20(single%20file)-34d399)
 
+## 🔴 Live
+
+- **App (Vercel):** _deploying — link added below_
+- **App (GitHub Pages):** https://hadijaffri.github.io/mimic-studio/
+- **Repo:** https://github.com/hadijaffri/mimic-studio
+
+Anyone can open the link, record gestures, and **contribute them back** — see [Contributing](#contributing--the-shared-dataset).
+
 ---
 
 ## What it actually does
@@ -43,7 +51,12 @@ python3 -m http.server 8000
 ### Option B — GitHub Pages
 Push this repo, then in **Settings → Pages** set the source to the `main` branch (root). Your app goes live at `https://<user>.github.io/<repo>/`.
 
-### Option C — Claude artifact
+### Option C — Vercel (recommended for sharing)
+This repo is a zero-config static site. Import it at [vercel.com/new](https://vercel.com/new),
+pick this GitHub repo, and deploy — you get a public `*.vercel.app` URL that anyone can use,
+and it redeploys automatically on every push (including bot updates to `dataset.json`).
+
+### Option D — Claude artifact
 Open [claude.ai](https://claude.ai), paste the contents of `index.html`, and ask Claude to render it as an HTML artifact. (Camera may be sandboxed — see caveat above.)
 
 ---
@@ -88,6 +101,19 @@ From there it's standard supervised learning / behavior cloning — feed the tim
 Each video frame, MediaPipe returns 21 hand landmarks. They're re-centered on the wrist and scaled by the farthest landmark distance to make a 63-dimensional, position/size-invariant vector. In **Collect** mode those vectors are stored under the active category. In **Recognize** mode the live vector is compared (Euclidean distance) to every stored sample; the 5 nearest vote, inverse-distance-weighted, and the winner is shown with a confidence score. Speech and motion are captured separately and tagged with the same category labels so a single command can span all three modalities.
 
 ---
+
+## Contributing — the shared dataset
+
+This is a **community dataset**. The app loads the shared `dataset.json` so you start from
+everyone's motions; when you record more and hit **Contribute**, it opens a Pull Request that
+adds a file under `contributions/`. Once merged, a GitHub Action rebuilds `dataset.json`
+automatically — no backend, no tokens.
+
+```
+record in app → contributions/<you>.json (PR) → merge → Action rebuilds dataset.json → everyone gets it
+```
+
+Full guide: [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

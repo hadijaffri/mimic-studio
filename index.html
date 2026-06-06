@@ -28,7 +28,7 @@
   .span7{grid-column:span 7}.span5{grid-column:span 5}
   .span6{grid-column:span 6}.span12{grid-column:span 12}
   @media(max-width:980px){.panel{grid-column:span 12 !important}}
-  .ph{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:8px}
   .ph h2{font-size:14px;margin:0;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
   .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
   .pill.on{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
@@ -61,7 +61,7 @@
   .lab{display:flex;align-items:center;justify-content:space-between;gap:8px;
     background:#0c1322;border:1px solid var(--line);border-radius:9px;padding:7px 10px}
   .lab .nm{font-weight:600}
-  .lab .ct{color:var(--muted);font-size:12px}
+  .lab .ct{color:var(--muted);font-size:12px;white-space:nowrap}
   .lab.active{border-color:var(--accent)}
   .bar{height:5px;border-radius:3px;background:#0b1322;overflow:hidden;margin-top:4px;flex:1}
   .bar i{display:block;height:100%;background:var(--accent)}
@@ -84,7 +84,7 @@
 <body>
 <header>
   <h1>Mimic Studio <span class="dot">●</span></h1>
-  <div class="sub">Teach a machine your hands, voice, and motion — then export a labeled dataset to train AI &amp; robots. Everything runs on-device in your browser.</div>
+  <div class="sub">Teach a machine your hands, voice, and motion — then export a labeled dataset to train AI &amp; robots. Runs on-device; the shared library grows from everyone's contributions.</div>
 </header>
 
 <main>
@@ -122,7 +122,7 @@
       <button class="ghost" id="oneShot" disabled>+1 sample</button>
     </div>
     <div class="labels" id="labelList"></div>
-    <div class="note">Pick a category, show the gesture, and <b>hold</b> to capture many samples fast. Switch to <b>Recognize</b> and it classifies your live hand with a k-nearest-neighbor model trained on what you recorded. Unlimited categories — add as many as you can teach.</div>
+    <div class="note">Counts show <b>community + yours</b>. Pick a category, show the gesture, and <b>hold</b> to capture samples fast. <b>Recognize</b> classifies your live hand against the whole shared library (k-nearest-neighbors). Unlimited categories.</div>
   </section>
 
   <!-- SPEECH -->
@@ -152,79 +152,87 @@
     <div class="note">Reads accelerometer / gyroscope (best on a phone). iOS asks permission on tap. Snapshots are timestamped and tagged to the active category.</div>
   </section>
 
-  <!-- DATASET -->
+  <!-- DATASET / CONTRIBUTE -->
   <section class="panel span12">
-    <div class="ph"><h2>Dataset</h2><span class="pill" id="savedPill">not saved</span></div>
+    <div class="ph"><h2>Shared dataset</h2><span class="pill" id="sharedPill">loading shared…</span></div>
     <div class="stat">
       <div class="met"><div class="k">Categories</div><div class="v" id="sCats">0</div></div>
       <div class="met"><div class="k">Gesture samples</div><div class="v" id="sGest">0</div></div>
       <div class="met"><div class="k">Speech phrases</div><div class="v" id="sSpeech">0</div></div>
       <div class="met"><div class="k">Motion snapshots</div><div class="v" id="sMotion">0</div></div>
     </div>
+    <div class="note" id="breakdown">community: — · yours: —</div>
     <div class="row">
-      <button class="primary" id="exportBtn">Export dataset (.json)</button>
+      <button class="primary" id="contributeBtn">⬆ Contribute my data (open Pull Request)</button>
+      <button id="exportBtn">Export merged (.json)</button>
       <button id="importBtn">Import .json</button>
       <input type="file" id="importFile" accept="application/json" style="display:none" />
-      <button class="ghost" id="saveBtn">Save to browser</button>
-      <button class="danger" id="clearBtn">Clear all</button>
+      <button class="ghost" id="saveBtn">Save mine to browser</button>
+      <button class="danger" id="clearBtn">Clear mine</button>
     </div>
-    <div class="note">The export is a single labeled, multimodal JSON file (normalized hand-landmark vectors + speech + motion, all timestamped). That file is the artifact you feed into a real training pipeline — e.g. behavior cloning for a robot, or a gesture classifier. <b>Honest note:</b> a from-scratch model needs many samples per category; start with a handful of well-chosen categories and grow.</div>
+    <div class="note">
+      <b>How "everyone can contribute" works:</b> the app loads the shared <span class="kbd">dataset.json</span> from the repo so you start from everyone's motions. When you click <b>Contribute</b>, your recorded data is copied to your clipboard + downloaded, and GitHub opens a new file for you under <span class="kbd">contributions/</span> — paste, commit, and it opens a Pull Request. Once a maintainer merges it, a GitHub Action <b>rebuilds <span class="kbd">dataset.json</span> automatically</b>, so the base library grows for everyone. No tokens, no backend.
+      <br><b>Honest note:</b> there's no meaningful set of 700,000 distinct hand gestures, and from-scratch training needs many samples per category — start with a handful and let the community grow it.
+    </div>
   </section>
 </main>
 
 <footer>
-  Mimic Studio · on-device · no data leaves your machine unless you export it. Built with MediaPipe Tasks Vision, the Web Speech API, and the Device&nbsp;Motion API.
+  Mimic Studio · on-device · your data stays local until you Export or Contribute. Built with MediaPipe Tasks Vision, the Web Speech API, and the Device&nbsp;Motion API.
 </footer>
 
 <script type="module">
 import { HandLandmarker, FilesetResolver, DrawingUtils }
   from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/vision_bundle.mjs";
 
+/* ---------- config ---------- */
+const REPO = "hadijaffri/mimic-studio";          // owner/repo for the contribute flow
+const SHARED_URL = "dataset.json";               // shared base dataset (in the repo)
+const LSKEY = "mimic-studio-mine-v1";
+
 /* ---------- state ---------- */
-const DB = { gestures:{}, speech:[], motion:[] };   // gestures: {label:[{vec,hand,t}]}
-let activeLabel = null;
-let mode = "collect";
-let recording = false;
-const LSKEY = "mimic-studio-v1";
+const empty = () => ({gestures:{}, speech:[], motion:[]});
+let BASE = empty();   // community dataset loaded from the repo (read-only here)
+let DB   = empty();   // *your* additions (persisted locally, this is what you contribute)
+let activeLabel = null, mode = "collect", recording = false;
 
 /* ---------- elements ---------- */
 const $ = id => document.getElementById(id);
 const video=$("video"), overlay=$("overlay"), ctx=overlay.getContext("2d");
 
+/* ---------- merged views ---------- */
+function mergedGestures(){
+  const out={};
+  for(const src of [BASE.gestures, DB.gestures])
+    for(const k in src){ out[k]=(out[k]||[]).concat(src[k]); }
+  return out;
+}
+const allLabels = () => Object.keys(mergedGestures());
+
 /* ---------- MediaPipe ---------- */
 let handLandmarker=null, camStream=null, running=false, lastVideoTime=-1;
 let frames=0, fpsT=performance.now();
+const MODEL="https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
 
 async function loadModel(){
   $("camPill").textContent="loading model…";
   const vision = await FilesetResolver.forVisionTasks(
     "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/wasm");
-  try{
-    handLandmarker = await HandLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        delegate:"GPU"},
-      runningMode:"VIDEO", numHands:2 });
-  }catch(e){ // GPU not available -> CPU
-    handLandmarker = await HandLandmarker.createFromOptions(vision,{
-      baseOptions:{modelAssetPath:
-        "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        delegate:"CPU"},
-      runningMode:"VIDEO", numHands:2 });
-  }
+  const make = delegate => HandLandmarker.createFromOptions(vision,{
+    baseOptions:{modelAssetPath:MODEL, delegate}, runningMode:"VIDEO", numHands:2});
+  try{ handLandmarker = await make("GPU"); }
+  catch(e){ handLandmarker = await make("CPU"); }
 }
-
 async function startCam(){
   try{
     if(!handLandmarker) await loadModel();
     camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640,height:480}});
-    video.srcObject = camStream;
-    await video.play();
+    video.srcObject = camStream; await video.play();
     overlay.width=video.videoWidth||640; overlay.height=video.videoHeight||480;
     $("camHint").style.display="none";
     $("camPill").textContent="live"; $("camPill").className="pill on";
     $("startCam").disabled=true; $("stopCam").disabled=false;
-    running=true; loop();
+    running=true; updateControls(); loop();
   }catch(e){
     $("camPill").textContent="camera blocked"; $("camPill").className="pill err";
     $("camHint").innerHTML="Camera unavailable: <b>"+(e.message||e.name)+"</b>.<br>Use https / localhost, and allow the camera.";
@@ -237,7 +245,7 @@ function stopCam(){
   video.srcObject=null; ctx.clearRect(0,0,overlay.width,overlay.height);
   $("camPill").textContent="idle"; $("camPill").className="pill";
   $("startCam").disabled=false; $("stopCam").disabled=true;
-  $("camHint").style.display="flex"; $("pred").style.display="none";
+  $("camHint").style.display="flex"; $("pred").style.display="none"; updateControls();
 }
 
 const drawing = new DrawingUtils(ctx);
@@ -259,24 +267,22 @@ function loop(){
       if(mode==="collect" && recording && activeLabel) addSample(activeLabel,vec,handed);
       if(mode==="recognize") showPrediction(classify(vec));
     } else if(mode==="recognize"){ $("pred").style.display="none"; }
-
-    frames++;
-    const now=performance.now();
+    frames++; const now=performance.now();
     if(now-fpsT>=500){ $("fpsPill").textContent=Math.round(frames*1000/(now-fpsT))+" fps"; frames=0; fpsT=now; }
   }
   requestAnimationFrame(loop);
 }
 
-/* ---------- features + model (k-NN) ---------- */
-function normalize(lm){               // translation + scale invariant -> 63-vector
+/* ---------- features + model (k-NN over merged library) ---------- */
+function normalize(lm){
   const w=lm[0]; const p=lm.map(q=>[q.x-w.x,q.y-w.y,q.z-w.z]);
   let m=1e-6; for(const q of p){const d=Math.hypot(q[0],q[1],q[2]); if(d>m)m=d;}
   const v=[]; for(const q of p) v.push(q[0]/m,q[1]/m,q[2]/m); return v;
 }
 function dist(a,b){let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);}
 function classify(vec,k=5){
-  const all=[];
-  for(const lab in DB.gestures) for(const s of DB.gestures[lab]) all.push({lab,d:dist(vec,s.vec)});
+  const lib=mergedGestures(), all=[];
+  for(const lab in lib) for(const s of lib[lab]) if(s.vec) all.push({lab,d:dist(vec,s.vec)});
   if(!all.length) return null;
   all.sort((a,b)=>a.d-b.d);
   const top=all.slice(0,Math.min(k,all.length)), votes={}; let total=0;
@@ -288,11 +294,10 @@ function showPrediction(p){
   const el=$("pred");
   if(!p){el.style.display="none";return;}
   el.style.display="block";
-  $("predLabel").textContent=p.label;
-  $("predConf").textContent=Math.round(p.confidence*100)+"% confidence";
+  $("predLabel").textContent=p.label; $("predConf").textContent=Math.round(p.confidence*100)+"% confidence";
 }
 
-/* ---------- categories + samples ---------- */
+/* ---------- categories + samples (yours go in DB) ---------- */
 function addLabel(name){
   name=(name||"").trim(); if(!name) return;
   if(!DB.gestures[name]) DB.gestures[name]=[];
@@ -300,49 +305,47 @@ function addLabel(name){
   renderLabels(); refreshStats(); updateControls();
 }
 function addSample(label,vec,hand){
-  DB.gestures[label].push({vec,hand,t:Date.now()});
+  (DB.gestures[label]=DB.gestures[label]||[]).push({vec,hand,t:Date.now()});
   renderLabels(); refreshStats();
 }
 function renderLabels(){
   const list=$("labelList"); list.innerHTML="";
-  const names=Object.keys(DB.gestures);
+  const lib=mergedGestures(), names=Object.keys(lib);
   $("catPill").textContent=names.length+" categor"+(names.length===1?"y":"ies");
-  const max=Math.max(1,...names.map(n=>DB.gestures[n].length));
+  const max=Math.max(1,...names.map(n=>lib[n].length));
   for(const n of names){
-    const c=DB.gestures[n].length;
+    const total=lib[n].length, mine=(DB.gestures[n]||[]).length;
     const row=document.createElement("div");
     row.className="lab"+(n===activeLabel?" active":"");
     row.innerHTML=`<div style="flex:1;min-width:0">
         <div class="nm">${esc(n)}</div>
-        <div class="bar"><i style="width:${Math.round(c/max*100)}%"></i></div></div>
-      <span class="ct">${c}</span>
+        <div class="bar"><i style="width:${Math.round(total/max*100)}%"></i></div></div>
+      <span class="ct">${total}${mine?` <span style="color:var(--accent)">(+${mine} you)</span>`:""}</span>
       <button class="ghost" data-pick="${esc(n)}">use</button>
-      <button class="danger" data-del="${esc(n)}">✕</button>`;
+      <button class="danger" data-del="${esc(n)}" title="remove your samples for this category">✕</button>`;
     list.appendChild(row);
   }
 }
-function esc(s){return s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ---------- speech ---------- */
 const SR = window.SpeechRecognition||window.webkitSpeechRecognition;
-let rec=null, lastFinal="";
+let rec=null, lastFinal="", micOn=false;
 function initSpeech(){
   if(!SR){$("micPill").textContent="unsupported";$("micPill").className="pill err";$("startMic").disabled=true;return;}
   rec=new SR(); rec.continuous=true; rec.interimResults=true; rec.lang="en-US";
   rec.onresult=e=>{
     let interim="",final="";
     for(let i=e.resultIndex;i<e.results.length;i++){
-      const r=e.results[i];
-      if(r.isFinal) final+=r[0].transcript; else interim+=r[0].transcript;
+      const r=e.results[i]; if(r.isFinal) final+=r[0].transcript; else interim+=r[0].transcript;
     }
-    if(final){lastFinal=final.trim();}
+    if(final) lastFinal=final.trim();
     $("transcript").innerHTML=(lastFinal?esc(lastFinal)+" ":"")+'<span class="interim">'+esc(interim)+"</span>";
   };
-  rec.onend=()=>{ if(micOn) rec.start(); };          // auto-restart while on
+  rec.onend=()=>{ if(micOn) rec.start(); };
   rec.onerror=e=>{ if(e.error==="not-allowed"){micOn=false;$("micPill").textContent="blocked";$("micPill").className="pill err";} };
 }
-let micOn=false;
-function startMic(){ if(!rec) return; micOn=true; rec.start();
+function startMic(){ if(!rec)return; micOn=true; rec.start();
   $("micPill").textContent="listening"; $("micPill").className="pill live";
   $("startMic").disabled=true; $("stopMic").disabled=false; $("capturePhrase").disabled=false; }
 function stopMic(){ micOn=false; if(rec) rec.stop();
@@ -350,21 +353,20 @@ function stopMic(){ micOn=false; if(rec) rec.stop();
   $("startMic").disabled=false; $("stopMic").disabled=true; $("capturePhrase").disabled=true; }
 
 /* ---------- motion ---------- */
-let motionOn=false, lastMotion={acc:null,rot:null,ori:null};
+let lastMotion={acc:null,rot:null,ori:null};
 async function enableMotion(){
   try{
     if(typeof DeviceMotionEvent!=="undefined" && typeof DeviceMotionEvent.requestPermission==="function"){
-      const r=await DeviceMotionEvent.requestPermission(); if(r!=="granted") throw new Error("permission denied");
+      if(await DeviceMotionEvent.requestPermission()!=="granted") throw new Error("permission denied");
     }
     window.addEventListener("devicemotion",onMotion);
     window.addEventListener("deviceorientation",onOrient);
-    motionOn=true; $("motionPill").textContent="on"; $("motionPill").className="pill on";
+    $("motionPill").textContent="on"; $("motionPill").className="pill on";
     $("recordMotion").disabled=false; $("enableMotion").disabled=true;
   }catch(e){ $("motionPill").textContent=(e.message||"unavailable"); $("motionPill").className="pill err"; }
 }
 function onMotion(e){
-  const a=e.accelerationIncludingGravity||e.acceleration||{};
-  const r=e.rotationRate||{};
+  const a=e.accelerationIncludingGravity||e.acceleration||{}, r=e.rotationRate||{};
   lastMotion.acc={x:a.x||0,y:a.y||0,z:a.z||0};
   lastMotion.rot={alpha:r.alpha||0,beta:r.beta||0,gamma:r.gamma||0};
   $("acc").textContent=fmt3(lastMotion.acc.x,lastMotion.acc.y,lastMotion.acc.z);
@@ -374,39 +376,88 @@ function onOrient(e){ lastMotion.ori={alpha:e.alpha||0,beta:e.beta||0,gamma:e.ga
   $("ori").textContent=fmt3(lastMotion.ori.alpha,lastMotion.ori.beta,lastMotion.ori.gamma); }
 const fmt3=(a,b,c)=>[a,b,c].map(n=>(+n).toFixed(1)).join("  ");
 
-/* ---------- dataset io ---------- */
-function refreshStats(){
-  const cats=Object.keys(DB.gestures).length;
-  const g=Object.values(DB.gestures).reduce((s,a)=>s+a.length,0);
-  $("sCats").textContent=cats; $("sGest").textContent=g;
-  $("sSpeech").textContent=DB.speech.length; $("sMotion").textContent=DB.motion.length;
+/* ---------- shared dataset load + stats ---------- */
+async function loadShared(){
+  try{
+    const r=await fetch(SHARED_URL,{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    BASE={gestures:d.gestures||{}, speech:d.speech||[], motion:d.motion||[]};
+    $("sharedPill").textContent="shared loaded"; $("sharedPill").className="pill on";
+  }catch(e){
+    BASE=empty();
+    $("sharedPill").textContent="shared unavailable (offline/artifact)"; $("sharedPill").className="pill";
+  }
+  renderLabels(); refreshStats(); updateControls();
 }
-function exportData(){
-  const blob=new Blob([JSON.stringify({
-    meta:{app:"Mimic Studio",version:1,exported:new Date().toISOString(),
-      schema:"gestures[label]=[{vec:63 normalized xyz, hand, t}]; speech=[{text,label,t}]; motion=[{acc,rot,ori,label,t}]"},
-    ...DB},null,2)],{type:"application/json"});
-  const a=document.createElement("a");
-  a.href=URL.createObjectURL(blob); a.download="mimic-dataset-"+Date.now()+".json"; a.click();
+function counts(o){
+  return {cats:Object.keys(o.gestures).length,
+          g:Object.values(o.gestures).reduce((s,a)=>s+a.length,0),
+          s:o.speech.length, m:o.motion.length};
+}
+function refreshStats(){
+  const lib=mergedGestures();
+  $("sCats").textContent=Object.keys(lib).length;
+  $("sGest").textContent=Object.values(lib).reduce((s,a)=>s+a.length,0);
+  $("sSpeech").textContent=BASE.speech.length+DB.speech.length;
+  $("sMotion").textContent=BASE.motion.length+DB.motion.length;
+  const b=counts(BASE), m=counts(DB);
+  $("breakdown").innerHTML=`community: ${b.g} gestures · ${b.s} phrases · ${b.m} motion`
+    +` &nbsp;·&nbsp; <span style="color:var(--accent)">yours: ${m.g} gestures · ${m.s} phrases · ${m.m} motion</span>`;
+}
+
+/* ---------- export / import / save (local) ---------- */
+function mergedDataset(){
+  const lib=mergedGestures();
+  return {meta:{app:"Mimic Studio",version:1,exported:new Date().toISOString(),
+    schema:"gestures[label]=[{vec:63 normalized xyz, hand, t}]; speech=[{text,label,t}]; motion=[{acc,rot,ori,label,t}]"},
+    gestures:lib, speech:BASE.speech.concat(DB.speech), motion:BASE.motion.concat(DB.motion)};
+}
+function download(obj,name){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
   URL.revokeObjectURL(a.href);
 }
+function exportData(){ download(mergedDataset(),"mimic-dataset-"+Date.now()+".json"); }
 function importData(file){
   const r=new FileReader();
-  r.onload=()=>{ try{
-    const d=JSON.parse(r.result);
-    DB.gestures=d.gestures||{}; DB.speech=d.speech||[]; DB.motion=d.motion||[];
-    activeLabel=Object.keys(DB.gestures)[0]||null;
+  r.onload=()=>{ try{ const d=JSON.parse(r.result);
+    // imported data is added to *yours*
+    for(const k in (d.gestures||{})) DB.gestures[k]=(DB.gestures[k]||[]).concat(d.gestures[k]);
+    DB.speech=DB.speech.concat(d.speech||[]); DB.motion=DB.motion.concat(d.motion||[]);
+    activeLabel=activeLabel||allLabels()[0]||null;
     renderLabels(); refreshStats(); updateControls();
   }catch(e){ alert("Invalid JSON: "+e.message); } };
   r.readAsText(file);
 }
-function save(){ try{ localStorage.setItem(LSKEY,JSON.stringify(DB));
-  $("savedPill").textContent="saved "+new Date().toLocaleTimeString(); $("savedPill").className="pill on";
-}catch(e){ $("savedPill").textContent="save failed (too big?)"; $("savedPill").className="pill err"; } }
-function load(){ try{ const s=localStorage.getItem(LSKEY); if(!s) return;
-  const d=JSON.parse(s); DB.gestures=d.gestures||{}; DB.speech=d.speech||[]; DB.motion=d.motion||[];
-  activeLabel=Object.keys(DB.gestures)[0]||null; $("savedPill").textContent="restored"; $("savedPill").className="pill on";
+function saveMine(){ try{ localStorage.setItem(LSKEY,JSON.stringify(DB));
+  $("sharedPill").textContent="yours saved locally"; $("sharedPill").className="pill on";
+}catch(e){ $("sharedPill").textContent="save failed (too big?)"; $("sharedPill").className="pill err"; } }
+function loadMine(){ try{ const s=localStorage.getItem(LSKEY); if(!s)return;
+  const d=JSON.parse(s); DB={gestures:d.gestures||{},speech:d.speech||[],motion:d.motion||[]};
 }catch(e){} }
+
+/* ---------- CONTRIBUTE: package yours -> open a PR ---------- */
+async function contribute(){
+  const c=counts(DB);
+  if(!c.g && !c.s && !c.m){ alert("You haven't recorded anything yet.\nRecord some gestures (Collect mode → hold to record), then contribute."); return; }
+  let handle=(prompt("Pick a short handle for attribution (a–z, 0–9, -):","")||"anon");
+  handle=handle.toLowerCase().replace(/[^a-z0-9-]/g,"-").replace(/^-+|-+$/g,"").slice(0,24)||"anon";
+  const fname=`${handle}-${Date.now()}`;
+  const payload={meta:{app:"Mimic Studio",contributor:handle,created:new Date().toISOString()},
+    gestures:DB.gestures, speech:DB.speech, motion:DB.motion};
+  const text=JSON.stringify(payload,null,2);
+  download(payload, fname+".json");
+  try{ await navigator.clipboard.writeText(text); }catch(e){}
+  const url=`https://github.com/${REPO}/new/main?filename=${encodeURIComponent("contributions/"+fname+".json")}`;
+  window.open(url,"_blank","noopener");
+  alert("Your contribution is COPIED to the clipboard and downloaded as "+fname+".json\n\n"
+    +"A GitHub tab just opened for a new file in contributions/.\n"
+    +"  1) Click in the big editor box and Paste (Ctrl/Cmd + V)\n"
+    +"  2) Click ‘Commit changes…’\n"
+    +"  3) Choose ‘Create a new branch and start a pull request’ → Propose\n\n"
+    +"When a maintainer merges it, a bot rebuilds dataset.json and everyone gets your motions.");
+}
 
 /* ---------- controls / wiring ---------- */
 function updateControls(){
@@ -415,14 +466,15 @@ function updateControls(){
   $("oneShot").disabled=!(has&&running&&mode==="collect");
 }
 $("startCam").onclick=startCam;
-$("stopCam").onclick=()=>{stopCam();updateControls();};
+$("stopCam").onclick=stopCam;
 $("addLabel").onclick=()=>addLabel($("labelInput").value);
 $("labelInput").addEventListener("keydown",e=>{if(e.key==="Enter")addLabel($("labelInput").value);});
 $("labelList").addEventListener("click",e=>{
   const pick=e.target.dataset.pick, del=e.target.dataset.del;
   if(pick){activeLabel=pick;renderLabels();updateControls();}
-  if(del){delete DB.gestures[del]; if(activeLabel===del)activeLabel=Object.keys(DB.gestures)[0]||null;
-    renderLabels();refreshStats();updateControls();}
+  if(del){ delete DB.gestures[del];
+    if(activeLabel===del) activeLabel=allLabels()[0]||null;
+    renderLabels();refreshStats();updateControls(); }
 });
 $("modeSwitch").addEventListener("click",e=>{
   const m=e.target.dataset.mode; if(!m)return; mode=m;
@@ -434,19 +486,21 @@ $("recordBtn").addEventListener("mousedown",()=>press(true));
 $("recordBtn").addEventListener("touchstart",e=>{e.preventDefault();press(true);});
 window.addEventListener("mouseup",()=>press(false));
 window.addEventListener("touchend",()=>press(false));
-$("oneShot").onclick=()=>{ if(activeLabel&&running){ /* one frame */ recording=true; setTimeout(()=>recording=false,60);} };
+$("oneShot").onclick=()=>{ if(activeLabel&&running){recording=true; setTimeout(()=>recording=false,60);} };
 $("startMic").onclick=startMic; $("stopMic").onclick=stopMic;
 $("capturePhrase").onclick=()=>{ if(lastFinal){ DB.speech.push({text:lastFinal,label:activeLabel||"(none)",t:Date.now()}); refreshStats(); } };
 $("enableMotion").onclick=enableMotion;
 $("recordMotion").onclick=()=>{ DB.motion.push({...lastMotion,label:activeLabel||"(none)",t:Date.now()}); refreshStats(); };
+$("contributeBtn").onclick=contribute;
 $("exportBtn").onclick=exportData;
 $("importBtn").onclick=()=>$("importFile").click();
 $("importFile").onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]); };
-$("saveBtn").onclick=save;
-$("clearBtn").onclick=()=>{ if(confirm("Delete all categories, speech and motion data?")){ DB.gestures={};DB.speech=[];DB.motion=[];activeLabel=null;renderLabels();refreshStats();updateControls();localStorage.removeItem(LSKEY);} };
+$("saveBtn").onclick=saveMine;
+$("clearBtn").onclick=()=>{ if(confirm("Clear YOUR local data? (Community data stays.)")){ DB=empty(); activeLabel=allLabels()[0]||null; localStorage.removeItem(LSKEY); renderLabels(); refreshStats(); updateControls(); } };
 
 /* ---------- boot ---------- */
-initSpeech(); load(); renderLabels(); refreshStats(); updateControls();
+initSpeech(); loadMine(); activeLabel=Object.keys(DB.gestures)[0]||null;
+renderLabels(); refreshStats(); updateControls(); loadShared();
 </script>
 </body>
 </html>

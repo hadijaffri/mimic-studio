@@ -1,0 +1,41 @@
+name: Merge contributions
+
+# When a contribution PR is merged into main (or a file under contributions/
+# changes), rebuild the shared dataset.json so everyone gets the new motions.
+on:
+  push:
+    branches: [main]
+    paths: ["contributions/**"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: merge-dataset
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Rebuild dataset.json
+        run: node scripts/merge.mjs
+
+      - name: Commit regenerated dataset.json
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dataset.json
+          if git diff --staged --quiet; then
+            echo "dataset.json unchanged."
+          else
+            git commit -m "chore: rebuild dataset.json from contributions [skip ci]"
+            git push
+          fi
