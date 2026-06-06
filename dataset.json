@@ -2,11 +2,16 @@
   "meta": {
     "app": "Mimic Studio",
     "version": 1,
-    "generated": "pending first contribution",
+    "generated": "2026-06-06T17:08:15.329Z",
     "contributors": 0,
-    "counts": { "categories": 0, "gestures": 0, "speech": 0, "motion": 0 },
+    "counts": {
+      "categories": 0,
+      "gestures": 0,
+      "speech": 0,
+      "motion": 0
+    },
     "schema": "gestures[label]=[{vec:63 normalized xyz, hand, by, t}]; speech=[{text,label,by,t}]; motion=[{acc,rot,ori,label,by,t}]",
-    "note": "Shared community dataset. Do NOT edit by hand — add a file under contributions/ and open a Pull Request; a GitHub Action regenerates this file automatically."
+    "note": "Auto-generated from contributions/ by scripts/merge.mjs. Do NOT edit by hand."
   },
   "gestures": {},
   "speech": [],
