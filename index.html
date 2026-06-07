@@ -152,6 +152,24 @@
     <div class="note">Reads accelerometer / gyroscope (best on a phone). iOS asks permission on tap. Snapshots are timestamped and tagged to the active category.</div>
   </section>
 
+  <!-- AI SORT (CLAUDE) -->
+  <section class="panel span12">
+    <div class="ph"><h2>AI sort with Claude (vision)</h2><span class="pill" id="aiPill">idle</span></div>
+    <div class="row">
+      <button class="primary" id="grab" disabled>📸 Capture frame</button>
+      <button id="autoGrab" disabled>Auto-capture: off</button>
+      <button id="sortBtn" disabled>🧠 Sort captures with Claude</button>
+      <button id="clearCaps" class="ghost">Clear captures</button>
+      <span class="pill" id="capPill">0 captures</span>
+    </div>
+    <div class="labels" id="capStrip" style="flex-direction:row;flex-wrap:wrap;max-height:130px"></div>
+    <div id="sortOut"></div>
+    <div class="note">
+      Capture camera frames, then Claude (<span class="kbd">claude-opus-4-8</span>, vision) labels each into a gesture category and groups them — “send a lot of pictures, Claude sorts it out.” Needs the <b>Vercel</b> deployment with an <span class="kbd">ANTHROPIC_API_KEY</span> set (Settings → Environment Variables); it won't work on GitHub Pages or as a Claude artifact (static, no server to hold the key).
+      <br><b>Reality check:</b> this is <b>not</b> 10,000 images/sec — vision-LLM calls are rate- and cost-limited (~tens of images per request, dollars per thousand). Frames are downscaled to 320×240 and sent in batches of 20. For a big backlog use the Batches API (see README).
+    </div>
+  </section>
+
   <!-- DATASET / CONTRIBUTE -->
   <section class="panel span12">
     <div class="ph"><h2>Shared dataset</h2><span class="pill" id="sharedPill">loading shared…</span></div>
@@ -464,6 +482,8 @@ function updateControls(){
   const has=!!activeLabel;
   $("recordBtn").disabled=!(has&&running&&mode==="collect");
   $("oneShot").disabled=!(has&&running&&mode==="collect");
+  $("grab").disabled=!running;
+  $("autoGrab").disabled=!running;
 }
 $("startCam").onclick=startCam;
 $("stopCam").onclick=stopCam;
@@ -498,9 +518,83 @@ $("importFile").onchange=e=>{ if(e.target.files[0]) importData(e.target.files[0]
 $("saveBtn").onclick=saveMine;
 $("clearBtn").onclick=()=>{ if(confirm("Clear YOUR local data? (Community data stays.)")){ DB=empty(); activeLabel=allLabels()[0]||null; localStorage.removeItem(LSKEY); renderLabels(); refreshStats(); updateControls(); } };
 
+/* ---------- AI sort with Claude (vision) ---------- */
+const caps=[]; let autoTimer=null;
+function snapshot(){
+  if(!running||video.readyState<2) return null;
+  const w=320,h=240,c=document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(video,0,0,w,h);
+  return c.toDataURL("image/jpeg",0.7);
+}
+function addCap(){
+  const d=snapshot(); if(!d) return;
+  if(caps.length>=200){ $("aiPill").textContent="max 200 captures"; $("aiPill").className="pill err"; return; }
+  caps.push({id:"c"+Date.now()+"_"+caps.length, dataUrl:d}); renderCaps();
+}
+function renderCaps(){
+  $("capPill").textContent=caps.length+" capture"+(caps.length===1?"":"s");
+  const strip=$("capStrip"); strip.innerHTML="";
+  caps.slice(-48).forEach(c=>{
+    const i=document.createElement("img"); i.src=c.dataUrl;
+    i.title=c.label?`${c.label} (${Math.round((c.confidence||0)*100)}%)`:"unsorted";
+    i.style.cssText="width:64px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--line)"+(c.label?";outline:2px solid var(--accent)":"");
+    strip.appendChild(i);
+  });
+  $("sortBtn").disabled=!caps.length;
+}
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+async function sortWithClaude(){
+  if(!caps.length) return;
+  $("aiPill").textContent="sorting…"; $("aiPill").className="pill live"; $("sortBtn").disabled=true; $("sortOut").innerHTML="";
+  const cats=allLabels();
+  try{
+    let done=0;
+    for(const batch of chunk(caps,20)){
+      const r=await fetch("/api/sort",{method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({categories:cats, images:batch.map(c=>({id:c.id,dataUrl:c.dataUrl}))})});
+      const j=await r.json().catch(()=>({error:"bad response (is /api/sort deployed?)"}));
+      if(!r.ok) throw new Error(j.error||("HTTP "+r.status));
+      for(const res of (j.results||[])){
+        const c=caps.find(x=>x.id===res.id);
+        if(c){ c.label=res.label; c.confidence=res.confidence; c.note=res.note; }
+      }
+      done+=batch.length; $("aiPill").textContent=`sorting… ${done}/${caps.length}`;
+    }
+    renderCaps(); renderSort();
+    $("aiPill").textContent="sorted"; $("aiPill").className="pill on";
+  }catch(e){
+    $("aiPill").textContent="error"; $("aiPill").className="pill err";
+    $("sortOut").innerHTML=`<div class="note" style="color:var(--bad)">Sort failed: ${esc(e.message)}<br>`
+      +`AI Sort runs only on the <b>Vercel</b> deployment with <span class="kbd">ANTHROPIC_API_KEY</span> set — not on GitHub Pages or as a Claude artifact.</div>`;
+  }
+  $("sortBtn").disabled=!caps.length;
+}
+function renderSort(){
+  const groups={};
+  for(const c of caps){ const k=c.label||"unsorted"; (groups[k]=groups[k]||[]).push(c); }
+  const out=$("sortOut"); out.innerHTML="";
+  for(const k of Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length)){
+    const wrap=document.createElement("div"); wrap.style.margin="10px 0";
+    wrap.innerHTML=`<div style="margin-bottom:6px"><b style="color:var(--accent)">${esc(k)}</b> <span class="ct">${groups[k].length}</span></div>`;
+    const row=document.createElement("div"); row.style.cssText="display:flex;gap:6px;flex-wrap:wrap";
+    groups[k].slice(0,40).forEach(c=>{ const i=document.createElement("img"); i.src=c.dataUrl;
+      i.title=`${k} · ${Math.round((c.confidence||0)*100)}% · ${c.note||""}`;
+      i.style.cssText="width:64px;height:48px;object-fit:cover;border-radius:6px;border:1px solid var(--line)"; row.appendChild(i); });
+    wrap.appendChild(row); out.appendChild(wrap);
+  }
+}
+$("grab").onclick=addCap;
+$("autoGrab").onclick=()=>{
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; $("autoGrab").textContent="Auto-capture: off"; $("autoGrab").classList.remove("primary"); }
+  else { autoTimer=setInterval(addCap,300); $("autoGrab").textContent="Auto-capture: on"; $("autoGrab").classList.add("primary"); }
+};
+$("sortBtn").onclick=sortWithClaude;
+$("clearCaps").onclick=()=>{ caps.length=0; if(autoTimer){clearInterval(autoTimer);autoTimer=null;$("autoGrab").textContent="Auto-capture: off";$("autoGrab").classList.remove("primary");}
+  $("sortOut").innerHTML=""; renderCaps(); $("aiPill").textContent="idle"; $("aiPill").className="pill"; };
+
 /* ---------- boot ---------- */
 initSpeech(); loadMine(); activeLabel=Object.keys(DB.gestures)[0]||null;
-renderLabels(); refreshStats(); updateControls(); loadShared();
+renderLabels(); refreshStats(); renderCaps(); updateControls(); loadShared();
 </script>
 </body>
 </html>

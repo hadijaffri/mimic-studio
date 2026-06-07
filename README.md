@@ -106,6 +106,24 @@ Each video frame, MediaPipe returns 21 hand landmarks. They're re-centered on th
 
 ---
 
+## AI sort with Claude (vision)
+
+Capture camera frames and let **Claude** (`claude-opus-4-8`, vision) label and group them into gesture categories — "send a lot of pictures, Claude sorts it out."
+
+**Setup (one-time, needs the Vercel deployment):**
+1. In **Vercel → Project → Settings → Environment Variables** add: `ANTHROPIC_API_KEY = sk-ant-…`
+2. Redeploy. The serverless function lives at [`api/sort.js`](api/sort.js); it uses the official `@anthropic-ai/sdk` with structured JSON output.
+
+In the app: **Capture frame** (or **Auto-capture**) → **Sort captures with Claude**. Frames are downscaled to 320×240 and sent in batches of 20; results are grouped by predicted label with confidence. It won't work on GitHub Pages or as a Claude artifact — those are static, with no server to hold your key.
+
+### Honest throughput reality — *not* 10,000 images/sec
+A vision LLM is the wrong tool for 10,000 images/second, and no API can do that:
+- **Latency:** each request is ~1–5s, not microseconds. Cameras capture ~30–60 fps, not 10,000.
+- **Rate limits:** the API caps requests- and tokens-per-minute — nowhere near 600,000,000 images/minute.
+- **Cost:** each image is ~hundreds–1,500 input tokens; 10k/sec would be millions of dollars per minute.
+
+What works: capture locally, **sample** a subset, and batch them. For a *large* backlog, use the **[Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing)** — up to 100,000 requests per batch, ~50% cheaper, results within ~1 hour. That's the real "send a big pile, Claude sorts it out afterward" path; the in-app button is the live, interactive version. For real-time per-frame recognition, keep using the on-device k-NN — Claude is best for labeling/auditing/auto-categorizing batches, not the realtime loop.
+
 ## Contributing — the shared dataset
 
 This is a **community dataset**. The app loads the shared `dataset.json` so you start from

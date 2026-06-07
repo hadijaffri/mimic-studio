@@ -1,0 +1,11 @@
+{
+  "name": "mimic-studio",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "On-device hand/speech/motion capture for robot & AI training, with a Claude-powered image sorter.",
+  "engines": { "node": ">=18" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "latest"
+  }
+}
