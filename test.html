@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mimic Studio — Test (recognize only)</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0e1422; --line:#1f2a3d;
+    --text:#e6edf7; --muted:#8da2c0; --accent:#5eead4; --accent2:#7c9cff;
+    --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:radial-gradient(1200px 800px at 80% -10%,#15233f 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{padding:22px 22px 8px;max-width:1300px;margin:0 auto}
+  h1{font-size:22px;margin:0;letter-spacing:.3px}
+  h1 .dot{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .nav{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .nav a{display:inline-block;text-decoration:none;border:1px solid var(--line);border-radius:999px;
+    padding:6px 13px;color:var(--muted);font-size:13px;background:#0e1422}
+  .nav a.here{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
+  .nav a:hover{border-color:var(--accent2)}
+  .lock{margin-left:auto;font-size:12px;color:var(--warn);border:1px solid #3a2f12;background:#1a1605;
+    border-radius:999px;padding:5px 12px}
+  main{max-width:1300px;margin:0 auto;padding:16px 22px 60px;
+    display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .span7{grid-column:span 7}.span5{grid-column:span 5}.span12{grid-column:span 12}
+  @media(max-width:980px){.panel{grid-column:span 12 !important}}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:8px}
+  .ph h2{font-size:14px;margin:0;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill.on{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
+  .pill.live{color:#241a02;background:var(--warn);border-color:var(--warn);font-weight:600}
+  .pill.err{color:#2a0c12;background:var(--bad);border-color:var(--bad);font-weight:600}
+  .stage{position:relative;aspect-ratio:4/3;background:#05080f;border-radius:10px;overflow:hidden;border:1px solid var(--line)}
+  .stage video,.stage canvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1)}
+  .stage video{object-fit:cover}
+  .stage .hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--muted);text-align:center;padding:24px;font-size:14px}
+  .pred{position:absolute;left:10px;bottom:10px;background:rgba(5,8,15,.72);
+    backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:10px;padding:8px 12px;transform:none}
+  .pred b{font-size:22px;color:var(--accent)}
+  .pred small{color:var(--muted)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);
+    background:#16203a;color:var(--text);padding:9px 14px;transition:.15s}
+  button:hover{border-color:var(--accent2)}
+  button.primary{background:var(--accent);color:#04211b;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .labels{margin-top:6px;display:flex;flex-direction:column;gap:6px;max-height:360px;overflow:auto}
+  .lab{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    background:#0c1322;border:1px solid var(--line);border-radius:9px;padding:7px 10px}
+  .lab .nm{font-weight:600}
+  .lab .ct{color:var(--muted);font-size:12px;white-space:nowrap}
+  .lab.lead{border-color:var(--accent)}
+  .bar{height:5px;border-radius:3px;background:#0b1322;overflow:hidden;margin-top:4px;flex:1}
+  .bar i{display:block;height:100%;background:var(--accent)}
+  .stat{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+  .met{background:#0c1322;border:1px solid var(--line);border-radius:9px;padding:8px 10px}
+  .met .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .met .v{font-size:20px;font-variant-numeric:tabular-nums}
+  .note{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5}
+  a{color:var(--accent2)}
+  .kbd{font:12px ui-monospace,Menlo,Consolas,monospace;background:#0b1322;border:1px solid var(--line);
+    border-radius:6px;padding:1px 6px;color:var(--muted)}
+  footer{max-width:1300px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mimic Studio <span class="dot">●</span> <span style="color:var(--muted);font-weight:400">Test</span></h1>
+  <div class="sub">Hold a hand up to the camera and this recognizes it against the <b>whole shared library</b> — everyone's contributed gestures combined. <b>Read-only:</b> nothing can be added or changed here.</div>
+  <nav class="nav">
+    <a href="index.html">✋ Collect app (add data)</a>
+    <a href="test.html" class="here">🧪 Test app (recognize only)</a>
+    <span class="lock">🔒 read-only · uses the shared dataset, can't change it</span>
+  </nav>
+</header>
+
+<main>
+  <!-- CAMERA / RECOGNITION -->
+  <section class="panel span7">
+    <div class="ph"><h2>Camera · Live recognition</h2><span id="camPill" class="pill">idle</span></div>
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted></video>
+      <canvas id="overlay"></canvas>
+      <div class="hint" id="camHint">Click <b style="color:var(--text)">&nbsp;Start camera&nbsp;</b> and show a hand. It's matched live against every contributed gesture (k-nearest-neighbors).</div>
+      <div class="pred" id="pred" style="display:none"><div><b id="predLabel">—</b></div><small id="predConf"></small></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="startCam">Start camera</button>
+      <button class="ghost" id="stopCam" disabled>Stop</button>
+      <span class="pill" id="fpsPill">— fps</span>
+      <span class="pill" id="handsPill">0 hands</span>
+    </div>
+    <div class="note">Camera needs a secure context: open via <span class="kbd">https</span> (GitHub Pages / Vercel) or <span class="kbd">http://localhost</span>. This page never records, stores, or uploads anything — it only reads the shared <span class="kbd">dataset.json</span> to compare against.</div>
+  </section>
+
+  <!-- RECOGNIZABLE CATEGORIES (read-only) -->
+  <section class="panel span5">
+    <div class="ph"><h2>What it can recognize</h2><span id="catPill" class="pill">0 categories</span></div>
+    <div class="labels" id="labelList"></div>
+    <div class="note">These categories come from the shared community dataset (sorted by how many samples back them). To <b>add</b> a category or more samples, use the <a href="index.html">Collect app</a> and Contribute — they'll appear here after the dataset rebuilds.</div>
+  </section>
+
+  <!-- SHARED DATASET STATS -->
+  <section class="panel span12">
+    <div class="ph"><h2>Shared dataset (read-only)</h2><span class="pill" id="sharedPill">loading shared…</span></div>
+    <div class="stat">
+      <div class="met"><div class="k">Categories</div><div class="v" id="sCats">0</div></div>
+      <div class="met"><div class="k">Gesture samples</div><div class="v" id="sGest">0</div></div>
+      <div class="met"><div class="k">Speech phrases</div><div class="v" id="sSpeech">0</div></div>
+      <div class="met"><div class="k">Motion snapshots</div><div class="v" id="sMotion">0</div></div>
+    </div>
+    <div class="note">This is the <b>combined</b> dataset everyone contributed to. It's loaded fresh every time the page opens, so as the community adds more, this tester gets smarter automatically — but no one can add to it from this page. Add &amp; contribute data in the <a href="index.html">Collect app</a>.</div>
+  </section>
+</main>
+
+<footer>
+  Mimic Studio · Test · recognition only, on-device · reads the shared dataset, writes nothing. Built with MediaPipe Tasks Vision.
+</footer>
+
+<script type="module">
+import { HandLandmarker, FilesetResolver, DrawingUtils }
+  from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/vision_bundle.mjs";
+
+/* ---------- config (read-only: only ever READS the shared dataset) ---------- */
+const SHARED_URL = "dataset.json";
+
+/* ---------- state ---------- */
+const empty = () => ({gestures:{}, speech:[], motion:[]});
+let BASE = empty();   // community dataset — the only data this app ever uses
+const lib = () => BASE.gestures;
+
+/* ---------- elements ---------- */
+const $ = id => document.getElementById(id);
+const video=$("video"), overlay=$("overlay"), ctx=overlay.getContext("2d");
+
+/* ---------- MediaPipe ---------- */
+let handLandmarker=null, camStream=null, running=false, lastVideoTime=-1;
+let frames=0, fpsT=performance.now();
+const MODEL="https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task";
+
+async function loadModel(){
+  $("camPill").textContent="loading model…";
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10/wasm");
+  const make = delegate => HandLandmarker.createFromOptions(vision,{
+    baseOptions:{modelAssetPath:MODEL, delegate}, runningMode:"VIDEO", numHands:2});
+  try{ handLandmarker = await make("GPU"); }
+  catch(e){ handLandmarker = await make("CPU"); }
+}
+async function startCam(){
+  try{
+    if(!handLandmarker) await loadModel();
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640,height:480}});
+    video.srcObject = camStream; await video.play();
+    overlay.width=video.videoWidth||640; overlay.height=video.videoHeight||480;
+    $("camHint").style.display="none";
+    $("camPill").textContent="live"; $("camPill").className="pill on";
+    $("startCam").disabled=true; $("stopCam").disabled=false;
+    running=true; loop();
+  }catch(e){
+    $("camPill").textContent="camera blocked"; $("camPill").className="pill err";
+    $("camHint").innerHTML="Camera unavailable: <b>"+(e.message||e.name)+"</b>.<br>Use https / localhost, and allow the camera.";
+    $("camHint").style.display="flex";
+  }
+}
+function stopCam(){
+  running=false;
+  if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+  video.srcObject=null; ctx.clearRect(0,0,overlay.width,overlay.height);
+  $("camPill").textContent="idle"; $("camPill").className="pill";
+  $("startCam").disabled=false; $("stopCam").disabled=true;
+  $("camHint").style.display="flex"; $("pred").style.display="none";
+}
+
+const drawing = new DrawingUtils(ctx);
+function loop(){
+  if(!running) return;
+  if(video.readyState>=2 && video.currentTime!==lastVideoTime){
+    lastVideoTime=video.currentTime;
+    const res = handLandmarker.detectForVideo(video, performance.now());
+    ctx.clearRect(0,0,overlay.width,overlay.height);
+    const hands = res.landmarks||[];
+    $("handsPill").textContent = hands.length+" hand"+(hands.length===1?"":"s");
+    for(const lm of hands){
+      drawing.drawConnectors(lm, HandLandmarker.HAND_CONNECTIONS,{color:"#5eead4",lineWidth:3});
+      drawing.drawLandmarks(lm,{color:"#7c9cff",lineWidth:1,radius:3});
+    }
+    if(hands.length){ showPrediction(classify(normalize(hands[0]))); }
+    else { $("pred").style.display="none"; }
+    frames++; const now=performance.now();
+    if(now-fpsT>=500){ $("fpsPill").textContent=Math.round(frames*1000/(now-fpsT))+" fps"; frames=0; fpsT=now; }
+  }
+  requestAnimationFrame(loop);
+}
+
+/* ---------- features + k-NN (identical math to the collect app) ---------- */
+function normalize(lm){
+  const w=lm[0]; const p=lm.map(q=>[q.x-w.x,q.y-w.y,q.z-w.z]);
+  let m=1e-6; for(const q of p){const d=Math.hypot(q[0],q[1],q[2]); if(d>m)m=d;}
+  const v=[]; for(const q of p) v.push(q[0]/m,q[1]/m,q[2]/m); return v;
+}
+function dist(a,b){let s=0;for(let i=0;i<a.length;i++){const d=a[i]-b[i];s+=d*d;}return Math.sqrt(s);}
+function classify(vec,k=5){
+  const L=lib(), all=[];
+  for(const lab in L) for(const s of L[lab]) if(s.vec) all.push({lab,d:dist(vec,s.vec)});
+  if(!all.length) return null;
+  all.sort((a,b)=>a.d-b.d);
+  const top=all.slice(0,Math.min(k,all.length)), votes={}; let total=0;
+  for(const t of top){const wgt=1/(t.d+1e-6); votes[t.lab]=(votes[t.lab]||0)+wgt; total+=wgt;}
+  let best=null,bw=-1; for(const l in votes) if(votes[l]>bw){bw=votes[l];best=l;}
+  return {label:best, confidence:bw/total};
+}
+let lastTop=null;
+function showPrediction(p){
+  const el=$("pred");
+  if(!p){el.style.display="none"; if(lastTop){lastTop=null; renderLabels();} return;}
+  el.style.display="block";
+  $("predLabel").textContent=p.label; $("predConf").textContent=Math.round(p.confidence*100)+"% confidence";
+  if(p.label!==lastTop){ lastTop=p.label; renderLabels(); }   // highlight the leading category in the list
+}
+
+/* ---------- read-only category list ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function renderLabels(){
+  const list=$("labelList"); list.innerHTML="";
+  const L=lib(), names=Object.keys(L).sort((a,b)=>L[b].length-L[a].length);
+  $("catPill").textContent=names.length+" categor"+(names.length===1?"y":"ies");
+  if(!names.length){
+    list.innerHTML='<div class="note" style="margin-top:0">No shared gestures yet. Be the first — record &amp; contribute in the <a href="index.html">Collect app</a>.</div>';
+    return;
+  }
+  const max=Math.max(1,...names.map(n=>L[n].length));
+  for(const n of names){
+    const total=L[n].length;
+    const row=document.createElement("div");
+    row.className="lab"+(n===lastTop?" lead":"");
+    row.innerHTML=`<div style="flex:1;min-width:0">
+        <div class="nm">${esc(n)}${n===lastTop?' <span style="color:var(--accent)">◀ live</span>':""}</div>
+        <div class="bar"><i style="width:${Math.round(total/max*100)}%"></i></div></div>
+      <span class="ct">${total} sample${total===1?"":"s"}</span>`;
+    list.appendChild(row);
+  }
+}
+
+/* ---------- load shared dataset (the only fetch this app makes) ---------- */
+async function loadShared(){
+  try{
+    const r=await fetch(SHARED_URL,{cache:"no-store"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    const d=await r.json();
+    BASE={gestures:d.gestures||{}, speech:d.speech||[], motion:d.motion||[]};
+    $("sharedPill").textContent="shared loaded"; $("sharedPill").className="pill on";
+  }catch(e){
+    BASE=empty();
+    $("sharedPill").textContent="shared unavailable (offline/artifact)"; $("sharedPill").className="pill";
+  }
+  refreshStats(); renderLabels();
+}
+function refreshStats(){
+  const L=lib();
+  $("sCats").textContent=Object.keys(L).length;
+  $("sGest").textContent=Object.values(L).reduce((s,a)=>s+a.length,0);
+  $("sSpeech").textContent=BASE.speech.length;
+  $("sMotion").textContent=BASE.motion.length;
+}
+
+/* ---------- wiring + boot ---------- */
+$("startCam").onclick=startCam;
+$("stopCam").onclick=stopCam;
+loadShared();
+</script>
+</body>
+</html>

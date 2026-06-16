@@ -6,11 +6,19 @@ Everything runs **on-device**. Nothing is uploaded anywhere unless *you* export 
 
 ![status](https://img.shields.io/badge/runtime-browser-5eead4) ![ml](https://img.shields.io/badge/learning-on--device%20kNN-7c9cff) ![deps](https://img.shields.io/badge/build-none%20(single%20file)-34d399)
 
-## 🔴 Live
+## 🔴 Live — two apps, one shared dataset
 
-- **App (GitHub Pages):** https://hadijaffri.github.io/mimic-studio/
-- **App (Vercel):** import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy** (auto-redeploys on every push).
+There are **two separate apps** that share the same community `dataset.json`:
+
+| App | Link | What it does |
+|---|---|---|
+| ✋ **Collect** (add data) | https://hadijaffri.github.io/mimic-studio/ | Record gestures/speech/motion and **contribute** them back. |
+| 🧪 **Test** (recognize only) | https://hadijaffri.github.io/mimic-studio/test.html | Loads **everyone's combined data** and recognizes your live hand. **Read-only — no one can add to it here.** |
+
+- **On Vercel** the same two pages are `/` and `/test` (import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy**; auto-redeploys on every push).
 - **Repo:** https://github.com/hadijaffri/mimic-studio
+
+The Test app fetches the shared dataset fresh on every load, so as the community contributes more, the tester gets smarter automatically — while staying impossible to edit from that page.
 
 Want your own copy on Vercel in one click?
 
