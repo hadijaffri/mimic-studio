@@ -14,8 +14,9 @@ There are **two separate apps** that share the same community `dataset.json`:
 |---|---|---|
 | ✋ **Collect** (add data) | https://hadijaffri.github.io/mimic-studio/ | Record gestures/speech/motion and **contribute** them back. |
 | 🧪 **Test** (recognize only) | https://hadijaffri.github.io/mimic-studio/test.html | Loads **everyone's combined data** and recognizes your live hand. **Read-only — no one can add to it here.** |
+| 🧠 **GPU Trainer** | https://hadijaffri.github.io/mimic-studio/train.html | Trains a real neural net **on your GPU** (TensorFlow.js/WebGL) with live accuracy, a learning-speed slider, and a target-accuracy you set. |
 
-- **On Vercel** the same two pages are `/` and `/test` (import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy**; auto-redeploys on every push).
+- **On Vercel** the same pages are `/`, `/test`, and `/train` (import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy**; auto-redeploys on every push).
 - **Repo:** https://github.com/hadijaffri/mimic-studio
 
 The Test app fetches the shared dataset fresh on every load, so as the community contributes more, the tester gets smarter automatically — while staying impossible to edit from that page.
@@ -131,6 +132,34 @@ A vision LLM is the wrong tool for 10,000 images/second, and no API can do that:
 - **Cost:** each image is ~hundreds–1,500 input tokens; 10k/sec would be millions of dollars per minute.
 
 What works: capture locally, **sample** a subset, and batch them. For a *large* backlog, use the **[Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing)** — up to 100,000 requests per batch, ~50% cheaper, results within ~1 hour. That's the real "send a big pile, Claude sorts it out afterward" path; the in-app button is the live, interactive version. For real-time per-frame recognition, keep using the on-device k-NN — Claude is best for labeling/auditing/auto-categorizing batches, not the realtime loop.
+
+## Training a real model
+
+The live app uses k-NN (instant, no training). To get a *trained* model there are two paths, both included:
+
+### In the browser, on your GPU — [`train.html`](train.html)
+Open the **GPU Trainer**, and it trains a neural net on the shared dataset using **TensorFlow.js (WebGL = your GPU)**. Live dashboard with:
+- **how much data has been trained** (samples seen, epochs, held-out accuracy per epoch),
+- a **learning-speed** slider you can move *while it trains*,
+- a **target accuracy** that auto-stops training when reached,
+- per-gesture accuracy, and **Download / Save** the trained model.
+
+Nothing is uploaded — training and the model stay on your machine.
+
+### Offline, reproducible — [`train.py`](train.py) + [`cv.py`](cv.py) (pure numpy, no deps)
+```bash
+python3 train.py              # trains an MLP, writes model.json + metrics.json
+python3 cv.py                 # 5-fold cross-validation (trustworthy estimate)
+```
+
+**Measured on the current dataset (6,904 samples, 9 gestures, held-out test):**
+
+| model | accuracy |
+|---|---|
+| k-NN (k=5) — what the live app uses | ~90% (5-fold CV) |
+| trained MLP `128→64` | **~98%** held-out |
+
+Nearly all remaining error is the catch-all `random` class being confused with real gestures — expected. To push past this, record **more and more varied** real samples (especially for whichever gestures the per-class report shows as weak) and retrain. `model.json` / `metrics.json` are the saved outputs.
 
 ## Contributing — the shared dataset
 

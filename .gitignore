@@ -11,3 +11,7 @@ mimic-dataset-*.json
 
 # logs
 *.log
+
+# python
+__pycache__/
+*.pyc

@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mimic Studio — GPU Trainer</title>
+<style>
+  :root{
+    --bg:#0b0f17; --panel:#121826; --panel2:#0e1422; --line:#1f2a3d;
+    --text:#e6edf7; --muted:#8da2c0; --accent:#5eead4; --accent2:#7c9cff;
+    --good:#34d399; --warn:#fbbf24; --bad:#fb7185; --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 800px at 80% -10%,#15233f 0%,var(--bg) 55%);
+    color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;}
+  header{padding:22px 22px 8px;max-width:1300px;margin:0 auto}
+  h1{font-size:22px;margin:0;letter-spacing:.3px}
+  h1 .dot{color:var(--accent)}
+  .sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .nav{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .nav a{text-decoration:none;border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--muted);font-size:13px;background:#0e1422}
+  .nav a.here{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
+  .nav a:hover{border-color:var(--accent2)}
+  main{max-width:1300px;margin:0 auto;padding:16px 22px 60px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+  .panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+  .span4{grid-column:span 4}.span8{grid-column:span 8}.span12{grid-column:span 12}
+  @media(max-width:980px){.panel{grid-column:span 12 !important}}
+  .ph{display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:8px}
+  .ph h2{font-size:14px;margin:0;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}
+  .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+  .pill.on{color:#04211b;background:var(--accent);border-color:var(--accent);font-weight:600}
+  .pill.live{color:#241a02;background:var(--warn);border-color:var(--warn);font-weight:600}
+  .pill.err{color:#2a0c12;background:var(--bad);border-color:var(--bad);font-weight:600}
+  .pill.gpu{color:#04211b;background:var(--good);border-color:var(--good);font-weight:700}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:12px}
+  button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:#16203a;color:var(--text);padding:9px 14px;transition:.15s}
+  button:hover{border-color:var(--accent2)}
+  button.primary{background:var(--accent);color:#04211b;border-color:var(--accent);font-weight:600}
+  button.ghost{background:transparent}
+  button.danger{border-color:#5b2330;color:var(--bad)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  label.ctl{display:block;margin-top:14px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  label.ctl b{color:var(--text);font-size:14px;text-transform:none;letter-spacing:0;float:right;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;margin-top:6px;accent-color:var(--accent)}
+  select{font:inherit;background:#0b1322;border:1px solid var(--line);color:var(--text);padding:7px 10px;border-radius:9px;margin-top:6px}
+  .big{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .met{background:#0c1322;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .met .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .met .v{font-size:24px;font-variant-numeric:tabular-nums;margin-top:2px}
+  .met .v small{font-size:13px;color:var(--muted)}
+  .met.hero .v{font-size:34px;color:var(--accent)}
+  .bar{height:9px;border-radius:6px;background:#0b1322;overflow:hidden;margin-top:6px;border:1px solid var(--line)}
+  .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));width:0;transition:width .15s}
+  .bar.tgt i{background:linear-gradient(90deg,#f59e0b,var(--good))}
+  canvas#chart{width:100%;height:220px;background:#070b13;border:1px solid var(--line);border-radius:10px;margin-top:6px}
+  .cls{display:flex;flex-direction:column;gap:6px;max-height:240px;overflow:auto;margin-top:6px}
+  .clrow{display:flex;align-items:center;gap:8px;background:#0c1322;border:1px solid var(--line);border-radius:8px;padding:6px 9px}
+  .clrow .nm{flex:1;min-width:0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .clrow .pc{font-size:12px;color:var(--muted);width:46px;text-align:right;font-variant-numeric:tabular-nums}
+  .clrow .bar{flex:1.3;margin:0;height:7px}
+  .note{color:var(--muted);font-size:12px;margin-top:12px;line-height:1.5}
+  a{color:var(--accent2)}
+  .kbd{font:12px ui-monospace,Menlo,Consolas,monospace;background:#0b1322;border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--muted)}
+  footer{max-width:1300px;margin:0 auto;padding:0 22px 40px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Mimic Studio <span class="dot">●</span> <span style="color:var(--muted);font-weight:400">GPU Trainer</span></h1>
+  <div class="sub">Train a real neural network on the shared gesture data — <b>on your GPU</b>. Watch how much data it has learned from, set <b>how fast</b> it learns, and a <b>target accuracy</b> to stop at.</div>
+  <nav class="nav">
+    <a href="index.html">✋ Collect</a>
+    <a href="test.html">🧪 Test</a>
+    <a href="train.html" class="here">🧠 Train (GPU)</a>
+    <span class="pill gpu" id="backendPill">detecting hardware…</span>
+  </nav>
+</header>
+
+<main>
+  <!-- CONTROLS -->
+  <section class="panel span4">
+    <div class="ph"><h2>Controls</h2><span class="pill" id="statePill">idle</span></div>
+
+    <label class="ctl">Learning speed (rate) <b id="lrVal">0.0020</b></label>
+    <input type="range" id="lr" min="0.0001" max="0.02" step="0.0001" value="0.002" />
+    <div class="note" style="margin-top:4px">Higher = learns faster but can get unstable. You can change this <b>while it trains</b>.</div>
+
+    <label class="ctl">Batch size <b id="batchVal">128</b></label>
+    <select id="batch">
+      <option>32</option><option>64</option><option selected>128</option><option>256</option><option>512</option>
+    </select>
+
+    <label class="ctl">Target accuracy — stop here <b id="targetVal">95%</b></label>
+    <input type="range" id="target" min="50" max="100" step="1" value="95" />
+
+    <div class="row">
+      <button class="primary" id="startBtn" disabled>▶ Start training</button>
+      <button id="pauseBtn" disabled>⏸ Pause</button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="stopBtn" disabled>■ Stop</button>
+      <button class="ghost" id="resetBtn" disabled>↺ Reset model</button>
+    </div>
+
+    <label class="ctl" style="margin-top:18px">Dataset</label>
+    <div class="note" style="margin-top:4px" id="dataNote">loading shared dataset…</div>
+    <div class="row">
+      <button id="loadFileBtn" class="ghost">Load a dataset .json</button>
+      <input type="file" id="file" accept="application/json" style="display:none" />
+    </div>
+  </section>
+
+  <!-- LIVE METRICS -->
+  <section class="panel span8">
+    <div class="ph"><h2>Live training</h2><span class="pill" id="epochPill">epoch 0</span></div>
+    <div class="big">
+      <div class="met hero"><div class="k">Accuracy (held-out)</div><div class="v"><span id="acc">—</span></div>
+        <div class="bar tgt"><i id="accBar"></i></div>
+        <div class="note" style="margin:4px 0 0">toward your target of <b id="tgtEcho">95%</b></div></div>
+      <div class="met hero"><div class="k">Data trained on your GPU</div><div class="v"><span id="seen">0</span> <small>samples seen</small></div>
+        <div class="bar"><i id="epochBar"></i></div>
+        <div class="note" style="margin:4px 0 0"><span id="seenNote">this epoch's progress</span></div></div>
+    </div>
+    <div class="big" style="margin-top:10px;grid-template-columns:repeat(4,1fr)">
+      <div class="met"><div class="k">Best acc</div><div class="v" id="best">—</div></div>
+      <div class="met"><div class="k">Loss</div><div class="v" id="loss">—</div></div>
+      <div class="met"><div class="k">Speed</div><div class="v" id="sps">— <small>smp/s</small></div></div>
+      <div class="met"><div class="k">Params</div><div class="v" id="params">—</div></div>
+    </div>
+    <canvas id="chart" width="900" height="220"></canvas>
+    <div class="note">The line is held-out accuracy per epoch (data the model never trains on, so it's an honest score). The dashed line is your target.</div>
+  </section>
+
+  <!-- PER-CLASS + SAVE -->
+  <section class="panel span12">
+    <div class="ph"><h2>Per-gesture accuracy &amp; save</h2><span class="pill" id="savePill">no model yet</span></div>
+    <div class="cls" id="clsList"><div class="note" style="margin:0">Start training to see how well each gesture is learned.</div></div>
+    <div class="row">
+      <button class="primary" id="downloadBtn" disabled>⬇ Download trained model</button>
+      <button id="saveLocalBtn" disabled>💾 Save model to this browser</button>
+    </div>
+    <div class="note">
+      This trains in your browser using <b>TensorFlow.js</b> on the <span class="kbd">webgl</span> (GPU) backend — the green badge up top shows the live backend. Nothing is uploaded; the model stays on your machine until you download it.
+      <br><b>Honest ceiling:</b> with a fixed dataset, accuracy plateaus — to push higher, record more (and more varied) gestures in the <a href="index.html">Collect app</a> and contribute them, then retrain here.
+    </div>
+  </section>
+</main>
+
+<footer>Mimic Studio · GPU Trainer · TensorFlow.js (WebGL) · trains on-device, your data never leaves the machine.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const SHARED_URL = "dataset.json";
+
+/* ---------- state ---------- */
+let DS=null;                 // {labels, Xtr,Ytr,Xte,Yte, yteInt, ntr, mean, std, n}
+let model=null, training=false, paused=false, epoch=0, best=0, lrDirty=true;
+let accHist=[], curBatch=0, totBatch=1;
+let curLR=0.002, batch=128, target=95;
+
+/* ---------- hardware ---------- */
+async function initBackend(){
+  try{ await tf.setBackend("webgl"); }catch(e){}
+  await tf.ready();
+  const b = tf.getBackend();
+  const pill=$("backendPill");
+  if(b==="webgl"){ pill.textContent="⚡ Training on GPU (WebGL)"; pill.className="pill gpu"; }
+  else { pill.textContent="CPU only ("+b+") — no GPU backend"; pill.className="pill live"; }
+}
+
+/* ---------- data ---------- */
+function buildDataset(json){
+  if(DS){ [DS.Xtr,DS.Ytr,DS.Xte,DS.Yte,DS.mean,DS.std].forEach(t=>t&&t.dispose&&t.dispose()); }
+  const g=json.gestures||{};
+  const labels=Object.keys(g).filter(k=>g[k]&&g[k].length).sort();
+  let xs=[], ys=[];
+  labels.forEach((lab,i)=>g[lab].forEach(s=>{ if(s.vec&&s.vec.length===63){ xs.push(s.vec); ys.push(i);} }));
+  if(!xs.length) throw new Error("no 63-dim gesture vectors found");
+  // shuffle
+  const idx=[...xs.keys()]; for(let i=idx.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[idx[i],idx[j]]=[idx[j],idx[i]];}
+  const X=idx.map(i=>xs[i]), Y=idx.map(i=>ys[i]);
+  const nTe=Math.max(labels.length, Math.round(X.length*0.2)), nTr=X.length-nTe;
+  const Xtr0=tf.tensor2d(X.slice(0,nTr)), Xte0=tf.tensor2d(X.slice(nTr));
+  const mean=Xtr0.mean(0), std=Xtr0.sub(mean).square().mean(0).sqrt().add(1e-6);
+  const Xtr=Xtr0.sub(mean).div(std), Xte=Xte0.sub(mean).div(std); Xtr0.dispose(); Xte0.dispose();
+  const yteInt=Y.slice(nTr);
+  const Ytr=tf.oneHot(tf.tensor1d(Y.slice(0,nTr),"int32"),labels.length);
+  const Yte=tf.oneHot(tf.tensor1d(yteInt,"int32"),labels.length);
+  DS={labels,Xtr,Ytr,Xte,Yte,yteInt,ntr:nTr,mean,std,n:X.length};
+  $("dataNote").innerHTML=`<b>${X.length}</b> samples · <b>${labels.length}</b> gestures<br>train ${nTr} · test ${nTe} (held out)`;
+}
+async function loadShared(){
+  try{
+    const r=await fetch(SHARED_URL,{cache:"no-store"}); if(!r.ok) throw new Error("HTTP "+r.status);
+    buildDataset(await r.json()); afterData();
+  }catch(e){
+    $("dataNote").innerHTML=`shared dataset unavailable (${e.message}).<br>Use <b>Load a dataset .json</b> (export one from the Collect app).`;
+  }
+}
+function afterData(){ resetModel(); $("startBtn").disabled=false; $("resetBtn").disabled=false; }
+
+/* ---------- model ---------- */
+function resetModel(){
+  if(model) model.dispose();
+  model=tf.sequential();
+  model.add(tf.layers.dense({inputShape:[63],units:128,activation:"relu"}));
+  model.add(tf.layers.dense({units:64,activation:"relu"}));
+  model.add(tf.layers.dense({units:DS.labels.length,activation:"softmax"}));
+  lrDirty=true; epoch=0; best=0; accHist=[];
+  $("params").textContent=model.countParams().toLocaleString();
+  $("epochPill").textContent="epoch 0"; $("acc").textContent="—"; $("best").textContent="—";
+  $("loss").textContent="—"; $("seen").textContent="0"; $("accBar").style.width="0";
+  $("epochBar").style.width="0"; $("savePill").textContent="untrained model ready"; $("savePill").className="pill";
+  $("downloadBtn").disabled=true; $("saveLocalBtn").disabled=true;
+  $("clsList").innerHTML='<div class="note" style="margin:0">Start training to see how well each gesture is learned.</div>';
+  drawChart();
+}
+function compile(){ model.compile({optimizer:tf.train.adam(curLR),loss:"categoricalCrossentropy",metrics:["accuracy"]}); lrDirty=false; }
+
+/* ---------- training loop ---------- */
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function trainLoop(){
+  totBatch=Math.ceil(DS.ntr/batch);
+  while(training){
+    if(paused){ await sleep(120); continue; }
+    if(lrDirty) compile();
+    curBatch=0;
+    const t0=performance.now();
+    const h=await model.fit(DS.Xtr,DS.Ytr,{epochs:1,batchSize:batch,shuffle:true,validationData:[DS.Xte,DS.Yte],
+      callbacks:{onBatchEnd:async(b,logs)=>{ curBatch++; $("epochBar").style.width=(curBatch/totBatch*100)+"%"; await tf.nextFrame(); }}});
+    if(!training) break;
+    epoch++;
+    const va=(h.history.val_acc??h.history.val_accuracy)[0];
+    const loss=h.history.loss[0];
+    best=Math.max(best,va); accHist.push(va);
+    const sps=Math.round(DS.ntr/((performance.now()-t0)/1000));
+    $("seen").textContent=(epoch*DS.ntr).toLocaleString();
+    $("seenNote").textContent=`${epoch} full passes over ${DS.ntr.toLocaleString()} samples`;
+    $("epochPill").textContent="epoch "+epoch;
+    $("acc").textContent=(va*100).toFixed(2)+"%";
+    $("best").textContent=(best*100).toFixed(2)+"%";
+    $("loss").textContent=loss.toFixed(3);
+    $("sps").innerHTML=sps.toLocaleString()+' <small>smp/s</small>';
+    $("accBar").style.width=Math.min(100,va*100)+"%";
+    await evalPerClass(); drawChart();
+    $("downloadBtn").disabled=false; $("saveLocalBtn").disabled=false;
+    $("savePill").textContent="trained · "+(best*100).toFixed(1)+"%"; $("savePill").className="pill on";
+    if(va*100>=target){ training=false; reached(va); break; }
+    await tf.nextFrame();
+  }
+  setControls(false);
+}
+function reached(va){
+  $("statePill").textContent="target reached 🎯"; $("statePill").className="pill on";
+  $("epochPill").textContent=`🎯 hit ${(va*100).toFixed(2)}% at epoch ${epoch}`;
+}
+
+/* ---------- per-class accuracy ---------- */
+async function evalPerClass(){
+  const pred=tf.tidy(()=>model.predict(DS.Xte).argMax(1));
+  const pi=await pred.data(); pred.dispose();
+  const C=DS.labels.length, hit=new Array(C).fill(0), tot=new Array(C).fill(0);
+  for(let i=0;i<pi.length;i++){ const t=DS.yteInt[i]; tot[t]++; if(pi[i]===t) hit[t]++; }
+  const order=[...DS.labels.keys()].sort((a,b)=>(hit[a]/tot[a]||0)-(hit[b]/tot[b]||0));
+  const list=$("clsList"); list.innerHTML="";
+  for(const i of order){
+    const pc=tot[i]?hit[i]/tot[i]:0;
+    const row=document.createElement("div"); row.className="clrow";
+    row.innerHTML=`<div class="nm">${esc(DS.labels[i])}</div>
+      <div class="bar"><i style="width:${(pc*100).toFixed(0)}%"></i></div>
+      <div class="pc">${(pc*100).toFixed(0)}%</div>`;
+    list.appendChild(row);
+  }
+}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- chart ---------- */
+function drawChart(){
+  const c=$("chart"), x=c.getContext("2d"), W=c.width, H=c.height, pad=28;
+  x.clearRect(0,0,W,H);
+  x.strokeStyle="#1f2a3d"; x.lineWidth=1; x.fillStyle="#8da2c0"; x.font="11px system-ui";
+  for(let p=0;p<=100;p+=25){ const y=H-pad-(H-2*pad)*p/100; x.beginPath();x.moveTo(pad,y);x.lineTo(W-6,y);x.stroke(); x.fillText(p+"%",2,y+3); }
+  // target line
+  const ty=H-pad-(H-2*pad)*target/100;
+  x.strokeStyle="#f59e0b"; x.setLineDash([5,4]); x.beginPath();x.moveTo(pad,ty);x.lineTo(W-6,ty);x.stroke(); x.setLineDash([]);
+  if(accHist.length>1){
+    x.strokeStyle="#5eead4"; x.lineWidth=2; x.beginPath();
+    accHist.forEach((v,i)=>{ const px=pad+(W-pad-6)*i/(accHist.length-1), py=H-pad-(H-2*pad)*v*100/100; i?x.lineTo(px,py):x.moveTo(px,py); });
+    x.stroke();
+  }
+}
+
+/* ---------- controls ---------- */
+function setControls(run){
+  training=run;
+  $("startBtn").disabled=run; $("pauseBtn").disabled=!run; $("stopBtn").disabled=!run;
+  $("resetBtn").disabled=run; $("lr").disabled=false;
+  $("statePill").textContent=run?"training":"stopped"; $("statePill").className=run?"pill live":"pill";
+}
+$("lr").oninput=e=>{ curLR=+e.target.value; $("lrVal").textContent=curLR.toFixed(4); lrDirty=true; };
+$("batch").onchange=e=>{ batch=+e.target.value; $("batchVal").textContent=batch; };
+$("target").oninput=e=>{ target=+e.target.value; $("targetVal").textContent=target+"%"; $("tgtEcho").textContent=target+"%"; drawChart(); };
+$("startBtn").onclick=()=>{ if(!model) return; paused=false; setControls(true); trainLoop(); };
+$("pauseBtn").onclick=()=>{ paused=!paused; $("pauseBtn").textContent=paused?"▶ Resume":"⏸ Pause"; $("statePill").textContent=paused?"paused":"training"; };
+$("stopBtn").onclick=()=>{ training=false; paused=false; $("pauseBtn").textContent="⏸ Pause"; };
+$("resetBtn").onclick=()=>{ if(!training) resetModel(); };
+$("loadFileBtn").onclick=()=>$("file").click();
+$("file").onchange=e=>{ const f=e.target.files[0]; if(!f) return; const r=new FileReader();
+  r.onload=()=>{ try{ buildDataset(JSON.parse(r.result)); afterData(); }catch(err){ $("dataNote").textContent="bad file: "+err.message; } }; r.readAsText(f); };
+
+/* ---------- save ---------- */
+function meta(){ return {labels:DS.labels, mean:DS.mean.arraySync(), std:DS.std.arraySync(), acc:best, when:new Date().toISOString()}; }
+$("downloadBtn").onclick=async()=>{ await model.save("downloads://mimic-gpu-model");
+  const b=new Blob([JSON.stringify(meta(),null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="mimic-gpu-model.meta.json"; a.click(); URL.revokeObjectURL(a.href);
+  $("savePill").textContent="downloaded ✓"; };
+$("saveLocalBtn").onclick=async()=>{ await model.save("localstorage://mimic-gpu-model");
+  localStorage.setItem("mimic-gpu-model.meta",JSON.stringify(meta())); $("savePill").textContent="saved to browser ✓"; $("savePill").className="pill on"; };
+
+/* ---------- boot ---------- */
+(async()=>{ await initBackend(); await loadShared(); })();
+</script>
+</body>
+</html>
