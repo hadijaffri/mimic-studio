@@ -14,7 +14,7 @@ There are **two separate apps** that share the same community `dataset.json`:
 |---|---|---|
 | ✋ **Collect** (add data) | https://hadijaffri.github.io/mimic-studio/ | Record gestures/speech/motion and **contribute** them back. |
 | 🧪 **Test** (recognize only) | https://hadijaffri.github.io/mimic-studio/test.html | Loads **everyone's combined data** and recognizes your live hand. **Read-only — no one can add to it here.** |
-| 🧠 **GPU Trainer** | https://hadijaffri.github.io/mimic-studio/train.html | Trains a real neural net **on your GPU** (TensorFlow.js/WebGL) with live accuracy, a learning-speed slider, and a target-accuracy you set. |
+| 🧠 **GPU Trainer** | https://hadijaffri.github.io/mimic-studio/train.html | Trains a real neural net **on your GPU** (TensorFlow.js/WebGL) with live accuracy and a learning-speed slider — it keeps training until you press **Stop**. |
 
 - **On Vercel** the same pages are `/`, `/test`, and `/train` (import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy**; auto-redeploys on every push).
 - **Repo:** https://github.com/hadijaffri/mimic-studio
@@ -139,18 +139,23 @@ The live app uses k-NN (instant, no training). To get a *trained* model there ar
 
 ### In the browser, on your GPU — [`train.html`](train.html)
 Open the **GPU Trainer**, and it trains a neural net on the shared dataset using **TensorFlow.js (WebGL = your GPU)**. Live dashboard with:
-- **how much data has been trained** (samples seen, epochs, held-out accuracy per epoch),
+- **how much data has been trained** (samples seen, passes over the data, held-out accuracy),
 - a **learning-speed** slider you can move *while it trains*,
-- a **target accuracy** that auto-stops training when reached,
+- a **goal line** to aim for — it keeps training until you press **Stop** (no auto-stop),
 - per-gesture accuracy, and **Download / Save** the trained model.
+
+The browser trainer needs the tab open to keep running. To train **unattended** (e.g. while you're away), use `train_sweep.py` below — it runs on its own and keeps the best model.
 
 Nothing is uploaded — training and the model stay on your machine.
 
-### Offline, reproducible — [`train.py`](train.py) + [`cv.py`](cv.py) (pure numpy, no deps)
+### Offline, reproducible — [`train.py`](train.py) + [`cv.py`](cv.py) + [`train_sweep.py`](train_sweep.py) (pure numpy, no deps)
 ```bash
-python3 train.py              # trains an MLP, writes model.json + metrics.json
+python3 train.py              # trains an MLP once, writes model.json + metrics.json
 python3 cv.py                 # 5-fold cross-validation (trustworthy estimate)
+python3 train_sweep.py        # unattended: searches settings for hours, keeps the best model
 ```
+
+`train_sweep.py` is the "keep training while I'm away" tool: it trains model after model on a fixed held-out split, writes live progress to `sweep_status.json`, and overwrites `model.json`/`metrics.json` only when it finds a **better** model. It runs on CPU, so it keeps going without a browser open. (The dataset is fixed — this finds the best model *for the data you have*; to raise the ceiling, record more gestures and rerun.)
 
 **Measured on the current dataset (6,904 samples, 9 gestures, held-out test):**
 

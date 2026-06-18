@@ -15,3 +15,10 @@ mimic-dataset-*.json
 # python
 __pycache__/
 *.pyc
+
+# training sweep artifacts (kept local; model.json/metrics.json are committed)
+sweep_log.jsonl
+sweep_status.json
+sweep.out
+smoke_*
+*.prev.json

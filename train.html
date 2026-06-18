@@ -68,7 +68,7 @@
 <body>
 <header>
   <h1>Mimic Studio <span class="dot">●</span> <span style="color:var(--muted);font-weight:400">GPU Trainer</span></h1>
-  <div class="sub">Train a real neural network on the shared gesture data — <b>on your GPU</b>. Watch how much data it has learned from, set <b>how fast</b> it learns, and a <b>target accuracy</b> to stop at.</div>
+  <div class="sub">Train a real neural network on the shared gesture data — <b>on your GPU</b>. Watch how much data it has learned from, set <b>how fast</b> it learns, and just let it run — it keeps training until you press <b>■ Stop</b>.</div>
   <nav class="nav">
     <a href="index.html">✋ Collect</a>
     <a href="test.html">🧪 Test</a>
@@ -91,15 +91,16 @@
       <option>32</option><option>64</option><option selected>128</option><option>256</option><option>512</option>
     </select>
 
-    <label class="ctl">Target accuracy — stop here <b id="targetVal">95%</b></label>
+    <label class="ctl">Goal line (a marker — won't stop it) <b id="targetVal">95%</b></label>
     <input type="range" id="target" min="50" max="100" step="1" value="95" />
+    <div class="note" style="margin-top:4px">Just a line to aim for on the chart — training runs until you press <b>■ Stop</b>.</div>
 
     <div class="row">
       <button class="primary" id="startBtn" disabled>▶ Start training</button>
       <button id="pauseBtn" disabled>⏸ Pause</button>
     </div>
     <div class="row">
-      <button class="ghost" id="stopBtn" disabled>■ Stop</button>
+      <button class="danger" id="stopBtn" disabled>■ Stop</button>
       <button class="ghost" id="resetBtn" disabled>↺ Reset model</button>
     </div>
 
@@ -113,14 +114,14 @@
 
   <!-- LIVE METRICS -->
   <section class="panel span8">
-    <div class="ph"><h2>Live training</h2><span class="pill" id="epochPill">epoch 0</span></div>
+    <div class="ph"><h2>Live training</h2><span class="pill" id="epochPill">0 passes</span></div>
     <div class="big">
       <div class="met hero"><div class="k">Accuracy (held-out)</div><div class="v"><span id="acc">—</span></div>
         <div class="bar tgt"><i id="accBar"></i></div>
-        <div class="note" style="margin:4px 0 0">toward your target of <b id="tgtEcho">95%</b></div></div>
+        <div class="note" style="margin:4px 0 0" id="goalNote">goal line at <b id="tgtEcho">95%</b> · runs until you press Stop</div></div>
       <div class="met hero"><div class="k">Data trained on your GPU</div><div class="v"><span id="seen">0</span> <small>samples seen</small></div>
         <div class="bar"><i id="epochBar"></i></div>
-        <div class="note" style="margin:4px 0 0"><span id="seenNote">this epoch's progress</span></div></div>
+        <div class="note" style="margin:4px 0 0"><span id="seenNote">this pass's progress</span></div></div>
     </div>
     <div class="big" style="margin-top:10px;grid-template-columns:repeat(4,1fr)">
       <div class="met"><div class="k">Best acc</div><div class="v" id="best">—</div></div>
@@ -129,7 +130,7 @@
       <div class="met"><div class="k">Params</div><div class="v" id="params">—</div></div>
     </div>
     <canvas id="chart" width="900" height="220"></canvas>
-    <div class="note">The line is held-out accuracy per epoch (data the model never trains on, so it's an honest score). The dashed line is your target.</div>
+    <div class="note">The line is held-out accuracy per pass over the data (data the model never trains on, so it's an honest score). The dashed line is your goal.</div>
   </section>
 
   <!-- PER-CLASS + SAVE -->
@@ -157,7 +158,7 @@ const SHARED_URL = "dataset.json";
 /* ---------- state ---------- */
 let DS=null;                 // {labels, Xtr,Ytr,Xte,Yte, yteInt, ntr, mean, std, n}
 let model=null, training=false, paused=false, epoch=0, best=0, lrDirty=true;
-let accHist=[], curBatch=0, totBatch=1;
+let accHist=[], curBatch=0, totBatch=1, goalHit=false;
 let curLR=0.002, batch=128, target=95;
 
 /* ---------- hardware ---------- */
@@ -210,7 +211,8 @@ function resetModel(){
   model.add(tf.layers.dense({units:DS.labels.length,activation:"softmax"}));
   lrDirty=true; epoch=0; best=0; accHist=[];
   $("params").textContent=model.countParams().toLocaleString();
-  $("epochPill").textContent="epoch 0"; $("acc").textContent="—"; $("best").textContent="—";
+  goalHit=false; $("goalNote").innerHTML='goal line at <b id="tgtEcho">'+target+'%</b> · runs until you press Stop';
+  $("epochPill").textContent="0 passes"; $("acc").textContent="—"; $("best").textContent="—";
   $("loss").textContent="—"; $("seen").textContent="0"; $("accBar").style.width="0";
   $("epochBar").style.width="0"; $("savePill").textContent="untrained model ready"; $("savePill").className="pill";
   $("downloadBtn").disabled=true; $("saveLocalBtn").disabled=true;
@@ -238,7 +240,7 @@ async function trainLoop(){
     const sps=Math.round(DS.ntr/((performance.now()-t0)/1000));
     $("seen").textContent=(epoch*DS.ntr).toLocaleString();
     $("seenNote").textContent=`${epoch} full passes over ${DS.ntr.toLocaleString()} samples`;
-    $("epochPill").textContent="epoch "+epoch;
+    $("epochPill").textContent=epoch+(epoch===1?" pass":" passes");
     $("acc").textContent=(va*100).toFixed(2)+"%";
     $("best").textContent=(best*100).toFixed(2)+"%";
     $("loss").textContent=loss.toFixed(3);
@@ -247,14 +249,13 @@ async function trainLoop(){
     await evalPerClass(); drawChart();
     $("downloadBtn").disabled=false; $("saveLocalBtn").disabled=false;
     $("savePill").textContent="trained · "+(best*100).toFixed(1)+"%"; $("savePill").className="pill on";
-    if(va*100>=target){ training=false; reached(va); break; }
+    if(va*100>=target && !goalHit){ goalHit=true; markGoal(); }
     await tf.nextFrame();
   }
   setControls(false);
 }
-function reached(va){
-  $("statePill").textContent="target reached 🎯"; $("statePill").className="pill on";
-  $("epochPill").textContent=`🎯 hit ${(va*100).toFixed(2)}% at epoch ${epoch}`;
+function markGoal(){
+  $("goalNote").innerHTML='🎯 passed your <b id="tgtEcho">'+target+'%</b> goal — still training; press <b>■ Stop</b> when you\'re happy';
 }
 
 /* ---------- per-class accuracy ---------- */
@@ -301,7 +302,9 @@ function setControls(run){
 }
 $("lr").oninput=e=>{ curLR=+e.target.value; $("lrVal").textContent=curLR.toFixed(4); lrDirty=true; };
 $("batch").onchange=e=>{ batch=+e.target.value; $("batchVal").textContent=batch; };
-$("target").oninput=e=>{ target=+e.target.value; $("targetVal").textContent=target+"%"; $("tgtEcho").textContent=target+"%"; drawChart(); };
+$("target").oninput=e=>{ target=+e.target.value; $("targetVal").textContent=target+"%";
+  goalHit=false; $("goalNote").innerHTML='goal line at <b id="tgtEcho">'+target+'%</b> · runs until you press Stop';
+  drawChart(); };
 $("startBtn").onclick=()=>{ if(!model) return; paused=false; setControls(true); trainLoop(); };
 $("pauseBtn").onclick=()=>{ paused=!paused; $("pauseBtn").textContent=paused?"▶ Resume":"⏸ Pause"; $("statePill").textContent=paused?"paused":"training"; };
 $("stopBtn").onclick=()=>{ training=false; paused=false; $("pauseBtn").textContent="⏸ Pause"; };
