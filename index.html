@@ -11,7 +11,7 @@
 <header class="topbar">
   <h1 class="logo">Mimic&nbsp;Studio</h1>
   <nav class="nav">
-    <span class="stage-badge">Stage 1 · Camera &amp; Skeleton</span>
+    <span class="stage-badge">Stage 2 · Recording</span>
   </nav>
 </header>
 
@@ -19,15 +19,18 @@
 
   <!-- ============================================================
        LEFT: the live camera view with the skeleton drawn on top.
-       The <video> and <canvas> sit exactly on top of each other,
-       like two sheets of tracing paper. Video on the bottom,
-       drawing on top.
        ============================================================ -->
   <section class="stage-wrap">
 
     <div id="stage" class="stage">
       <video id="video" playsinline muted></video>
       <canvas id="overlay"></canvas>
+
+      <!-- Big countdown / recording banner -->
+      <div id="record-overlay" class="record-overlay" hidden>
+        <div id="countdown-number" class="countdown-number"></div>
+        <div id="record-status" class="record-status"></div>
+      </div>
 
       <!-- Shown before the user gives camera permission -->
       <div id="permission" class="permission">
@@ -39,7 +42,7 @@
           </p>
           <ul class="permission-facts">
             <li><b>Nothing is uploaded.</b> Every frame is processed inside this browser tab.</li>
-            <li><b>Nothing is recorded</b> to disk unless you press Record yourself.</li>
+            <li><b>No video is ever saved.</b> Recording keeps only numbers describing hand shape.</li>
             <li><b>No account, no server.</b> Close the tab and it is all gone.</li>
           </ul>
           <button id="btn-enable" class="btn btn-primary btn-big">
@@ -60,66 +63,134 @@
       <button id="btn-stop" class="btn" disabled>Stop camera</button>
       <label class="toggle">
         <input type="checkbox" id="toggle-hands" checked />
-        <span>Show hands</span>
+        <span>Hands</span>
       </label>
       <label class="toggle">
         <input type="checkbox" id="toggle-pose" checked />
-        <span>Show body</span>
+        <span>Body</span>
+      </label>
+      <label class="toggle">
+        <input type="checkbox" id="toggle-bends" checked />
+        <span>Bend rings</span>
       </label>
       <label class="toggle">
         <input type="checkbox" id="toggle-mirror" checked />
-        <span>Mirror me</span>
+        <span>Mirror</span>
       </label>
+    </div>
+
+    <!-- ---------- live joint bend readout ---------- -->
+    <div class="panel bend-panel">
+      <h2 class="panel-title">Finger bend <span class="muted-inline">— how curled each finger is, right now</span></h2>
+      <div id="curl-bars" class="curl-bars">
+        <p class="muted">Hold a hand up to see every joint measured live.</p>
+      </div>
     </div>
   </section>
 
   <!-- ============================================================
-       RIGHT: a readout so you can see the tracker is really working.
+       RIGHT: recording controls + what the camera sees
        ============================================================ -->
-  <aside class="panel">
-    <h2 class="panel-title">What the camera sees</h2>
+  <aside class="side">
 
-    <div class="readout">
-      <div class="stat">
-        <span class="stat-label">Speed</span>
-        <span class="stat-value" id="stat-fps">—</span>
-        <span class="stat-unit">frames / sec</span>
+    <!-- ---------- RECORD ---------- -->
+    <div class="panel">
+      <h2 class="panel-title">Record a gesture</h2>
+
+      <div class="add-row">
+        <input
+          id="new-category"
+          class="text-input"
+          type="text"
+          placeholder="Name a gesture — e.g. thumbs up"
+          maxlength="32"
+          autocomplete="off" />
+        <button id="btn-add-category" class="btn btn-primary">Add</button>
       </div>
-      <div class="stat">
-        <span class="stat-label">Hands found</span>
-        <span class="stat-value" id="stat-hands">0</span>
-        <span class="stat-unit">of 2</span>
+      <p id="add-error" class="add-error" hidden></p>
+
+      <div id="category-list" class="category-list">
+        <p class="muted">
+          Add a gesture name above, then press its <b>Record</b> button and do
+          the gesture for 3 seconds.
+        </p>
       </div>
-      <div class="stat">
-        <span class="stat-label">Body found</span>
-        <span class="stat-value" id="stat-pose">no</span>
-        <span class="stat-unit">33 points</span>
+
+      <div class="record-settings">
+        <label class="field">
+          <span>Record for</span>
+          <select id="duration" class="select">
+            <option value="2000">2 seconds</option>
+            <option value="3000" selected>3 seconds</option>
+            <option value="5000">5 seconds</option>
+            <option value="8000">8 seconds</option>
+          </select>
+        </label>
+        <label class="field">
+          <span>Countdown</span>
+          <select id="countdown" class="select">
+            <option value="0">None</option>
+            <option value="3000" selected>3 seconds</option>
+            <option value="5000">5 seconds</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="balance-warnings" class="warnings" hidden></div>
+
+      <div class="totals">
+        <span>Total: <b id="total-samples">0</b> samples across
+        <b id="total-classes">0</b> gestures</span>
+        <button id="btn-clear-all" class="btn btn-danger btn-small">Clear all</button>
       </div>
     </div>
 
-    <div class="hand-list" id="hand-list">
-      <p class="muted">Hold your hands up where the camera can see them.</p>
+    <!-- ---------- READOUT ---------- -->
+    <div class="panel">
+      <h2 class="panel-title">What the camera sees</h2>
+
+      <div class="readout">
+        <div class="stat">
+          <span class="stat-label">Speed</span>
+          <span class="stat-value" id="stat-fps">—</span>
+          <span class="stat-unit">frames / sec</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Hands</span>
+          <span class="stat-value" id="stat-hands">0</span>
+          <span class="stat-unit">of 2</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Body</span>
+          <span class="stat-value" id="stat-pose">no</span>
+          <span class="stat-unit">33 points</span>
+        </div>
+      </div>
+
+      <div class="hand-list" id="hand-list">
+        <p class="muted">Hold your hands up where the camera can see them.</p>
+      </div>
+
+      <div class="explainer">
+        <h3>What are the rings?</h3>
+        <p>
+          Every joint that can bend has a ring around it. Each ring is a tiny
+          gauge: it fills up and turns from
+          <b class="c-green">green</b> to <b class="c-orange">orange</b> to
+          <b class="c-red">red</b> as that joint curls.
+        </p>
+        <p>
+          To measure a bend you need <b>three</b> dots — the joint plus its two
+          neighbours. We measure the corner between them. Straight is 180°,
+          fully curled is about 30°.
+        </p>
+        <p>
+          <b>15 joints per hand</b> bend (3 per finger). The wrist and the five
+          fingertips don't, so they have no ring.
+        </p>
+      </div>
     </div>
 
-    <div class="explainer">
-      <h3>What is happening?</h3>
-      <p>
-        Two AI models are running on every single frame:
-      </p>
-      <p>
-        <b>Hand Landmarker</b> finds <b>21 points</b> on each hand — 4 on each
-        finger plus one on the wrist — for up to two hands at once.
-      </p>
-      <p>
-        <b>Pose Landmarker</b> finds <b>33 points</b> on your whole body:
-        shoulders, elbows, hips, knees and so on.
-      </p>
-      <p>
-        Each point comes back as an <code>x</code>, <code>y</code> and
-        <code>z</code> number. The lines you see are just those dots joined up
-        in the right order, like a dot-to-dot puzzle.
-      </p>
-    </div>
   </aside>
 
 </main>

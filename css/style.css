@@ -275,3 +275,202 @@ body {
   padding: 1px 5px;
   font-size: 12px;
 }
+
+/* ==========================================================================
+   Stage 2 — recording UI
+   ========================================================================== */
+
+.side { display: grid; gap: 20px; }
+.bend-panel { margin-top: 14px; }
+.muted-inline { color: var(--text-dim); font-weight: 400; font-size: 12px; }
+
+.c-green  { color: hsl(140, 85%, 58%); }
+.c-orange { color: hsl(35, 85%, 58%); }
+.c-red    { color: hsl(0, 85%, 62%); }
+
+/* ---------- add a category ---------- */
+.add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+
+.text-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 15px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 14px;
+}
+.text-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(79, 140, 255, 0.18);
+}
+.text-input::placeholder { color: #5c6478; }
+
+.add-error { color: var(--danger); font-size: 13px; margin: 0 0 10px; }
+
+/* ---------- the list of gestures ---------- */
+.category-list { display: grid; gap: 10px; margin-bottom: 16px; }
+
+.cat {
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+.cat.active {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px rgba(255, 93, 108, 0.16);
+}
+
+.cat-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.cat-name { font-weight: 650; font-size: 15px; word-break: break-word; }
+.cat-count { font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+/* the little "how many samples" bar */
+.cat-bar {
+  height: 6px;
+  background: #1b2130;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.cat-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+  transition: width 0.25s;
+}
+
+.cat-actions { display: flex; gap: 8px; }
+.btn-small { padding: 7px 13px; font-size: 13px; border-radius: 8px; }
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #2a0208;
+}
+.btn-danger:hover:not(:disabled) { background: #ff7a86; border-color: #ff7a86; }
+
+/* ---------- record settings ---------- */
+.record-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.field { display: grid; gap: 5px; font-size: 12px; color: var(--text-dim); }
+.select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+.select:focus { outline: none; border-color: var(--accent); }
+
+/* ---------- warnings ---------- */
+.warnings { display: grid; gap: 8px; margin-bottom: 14px; }
+.warning {
+  background: rgba(255, 184, 77, 0.1);
+  border: 1px solid rgba(255, 184, 77, 0.35);
+  border-left: 3px solid var(--warn);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  color: #ffd9a0;
+}
+
+.totals {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  border-top: 1px solid var(--border);
+  padding-top: 13px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.totals b { color: var(--text); font-variant-numeric: tabular-nums; }
+
+/* ---------- countdown / recording banner over the video ---------- */
+.record-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  pointer-events: none;   /* never block clicks on the video */
+  z-index: 2;
+  text-shadow: 0 2px 14px rgba(0, 0, 0, 0.9);
+}
+.record-overlay[hidden] { display: none; }
+
+.countdown-number {
+  font-size: 92px;
+  font-weight: 800;
+  line-height: 1;
+  color: #fff;
+}
+.countdown-number.rec {
+  font-size: 44px;
+  color: var(--danger);
+  animation: pulse 1s ease-in-out infinite;
+}
+@keyframes pulse { 50% { opacity: 0.35; } }
+
+.record-status {
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(8, 10, 16, 0.6);
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+/* ---------- finger curl bars ---------- */
+.curl-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+.curl-group h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.curl-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 38px;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 6px;
+}
+.curl-name { font-size: 13px; color: var(--text-dim); }
+.curl-track {
+  height: 8px;
+  background: #1b2130;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.curl-fill { display: block; height: 100%; border-radius: 999px; }
+.curl-pct {
+  font-size: 12px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}

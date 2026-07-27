@@ -39,6 +39,20 @@ So before training we **normalize** every hand:
 That lives in `js/normalize.js` as one clearly commented function you can read
 and tweak. It is the single most important file in the project.
 
+Run `node tests/math.test.mjs` to check it. The tests prove the useful
+properties directly: moving or zooming the hand changes the output by exactly
+zero, and a hand tilted 47° normalizes identically to an untilted one once
+rotation is on.
+
+### Bend rings
+
+Every joint that can bend wears a little gauge that fills up as it curls,
+fading green → orange → red. Measuring a bend needs **three** dots — the joint
+plus its two neighbours — and the angle between them comes from the dot
+product. `js/angles.js` explains it step by step.
+
+15 joints per hand bend (3 per finger); the wrist and 5 fingertips don't.
+
 ---
 
 ## Running it
@@ -95,7 +109,8 @@ legacy/             archived data from the previous version
 ## Build stages
 
 - [x] **Stage 1 — Camera & skeleton.** Webcam, both hands, full body, overlay.
-- [ ] **Stage 2 — Recording.** Name a gesture, record samples, see the counts.
+- [x] **Stage 2 — Recording.** Bend rings on every joint, name a gesture,
+      record samples with a countdown, live sample counts and balance warnings.
 - [ ] **Stage 3 — Training.** Normalize, train on the GPU, live loss/accuracy
       graph, then live prediction.
 - [ ] **Stage 4 — Sharing.** Load community gestures, contribute your own.
