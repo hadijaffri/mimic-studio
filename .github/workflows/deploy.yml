@@ -1,0 +1,42 @@
+name: Deploy to GitHub Pages
+
+# Runs every time you push to main. There is no build step — this is a plain
+# static site — so all this really does is copy the files to Pages.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:   # lets you trigger it by hand from the Actions tab
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# If you push twice quickly, cancel the older deploy rather than queueing it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # legacy/ holds the archived training data from the old version of this
+      # project. It is useful in the repo but the website never loads it, so
+      # we leave it out of the deploy to keep the site small.
+      - name: Trim files the site doesn't need
+        run: rm -rf legacy
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

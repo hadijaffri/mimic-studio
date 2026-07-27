@@ -1,24 +1,17 @@
-# OS / editor
+# Editor / OS noise
 .DS_Store
 Thumbs.db
-*.swp
 .vscode/
 .idea/
 
-# exported datasets (don't commit personal training data)
-mimic-dataset-*.json
-*.local.json
-
-# logs
-*.log
-
-# python
+# Python leftovers
 __pycache__/
 *.pyc
+.venv/
 
-# training sweep artifacts (kept local; model.json/metrics.json are committed)
-sweep_log.jsonl
-sweep_status.json
-sweep.out
-smoke_*
-*.prev.json
+# Node (only if you later add tooling — the site itself needs no build)
+node_modules/
+
+# Local scratch
+*.log
+tmp/

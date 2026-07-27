@@ -1,184 +1,119 @@
 # Mimic Studio
 
-Teach a machine your **hand motions**, **voice**, and **device movement** — directly from your browser — then export a clean, labeled, multimodal dataset to train AI and robots.
+A website that watches you through your webcam and learns your gestures.
 
-Everything runs **on-device**. Nothing is uploaded anywhere unless *you* export the JSON file.
+Hold your hands up and it finds **21 points on each hand** and **33 points on
+your body**, live, at camera speed. Record a few seconds of "thumbs up",
+record a few seconds of "wave", press **Train**, and it builds a small neural
+network that recognises them — then tells you which one you are doing right
+now, with a confidence score.
 
-![status](https://img.shields.io/badge/runtime-browser-5eead4) ![ml](https://img.shields.io/badge/learning-on--device%20kNN-7c9cff) ![deps](https://img.shields.io/badge/build-none%20(single%20file)-34d399)
-
-## 🔴 Live — two apps, one shared dataset
-
-There are **two separate apps** that share the same community `dataset.json`:
-
-| App | Link | What it does |
-|---|---|---|
-| ✋ **Collect** (add data) | https://hadijaffri.github.io/mimic-studio/ | Record gestures/speech/motion and **contribute** them back. |
-| 🧪 **Test** (recognize only) | https://hadijaffri.github.io/mimic-studio/test.html | Loads **everyone's combined data** and recognizes your live hand. **Read-only — no one can add to it here.** |
-| 🧠 **GPU Trainer** | https://hadijaffri.github.io/mimic-studio/train.html | Trains a real neural net **on your GPU** (TensorFlow.js/WebGL) with live accuracy and a learning-speed slider — it keeps training until you press **Stop**. |
-
-- **On Vercel** the same pages are `/`, `/test`, and `/train` (import this repo at **[vercel.com/new](https://vercel.com/new)** → pick `mimic-studio` → **Deploy**; auto-redeploys on every push).
-- **Repo:** https://github.com/hadijaffri/mimic-studio
-
-The Test app fetches the shared dataset fresh on every load, so as the community contributes more, the tester gets smarter automatically — while staying impossible to edit from that page.
-
-Want your own copy on Vercel in one click?
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/hadijaffri/mimic-studio)
-
-Anyone can open the link, record gestures, and **contribute them back** — see [Contributing](#contributing--the-shared-dataset).
+Everything runs **inside your browser**. Your video never leaves your computer.
+There is no server, no upload, no account.
 
 ---
 
-## What it actually does
+## How it works
 
-| Modality | Tech | What you get |
-|---|---|---|
-| **Hand tracking** | [MediaPipe Tasks Vision](https://ai.google.dev/edge/mediapipe) `HandLandmarker` | 21 3D landmarks per hand, up to 2 hands, in real time |
-| **Live learning** | k-nearest-neighbors over normalized landmark vectors | Records gestures into categories and classifies your live hand instantly |
-| **Speech** | Web Speech API | Live transcript; final phrases tagged to a category |
-| **Movement** | Device Motion / Orientation API | Accelerometer + gyroscope snapshots (best on a phone) |
-| **Dataset** | JSON export/import + `localStorage` | One labeled, multimodal file ready for a training pipeline |
+| Piece | What it does |
+| --- | --- |
+| [MediaPipe Tasks for Web](https://ai.google.dev/edge/mediapipe/solutions/vision/hand_landmarker) | Finds the hand and body landmarks in each video frame, on your GPU |
+| [TensorFlow.js](https://www.tensorflow.org/js) | Trains the gesture classifier, also on your GPU (WebGL / WebGPU) |
+| Plain ES modules | No build step, no bundler — the files you edit are the files that ship |
 
-The hand features are **translation- and scale-invariant** (re-centered on the wrist and normalized), so the model generalizes across where your hand is in frame and how close you are to the camera.
+### The important idea: normalization
+
+The models give landmarks as positions **in the picture**. If you feed those
+straight into a classifier, it learns nonsense — "thumbs up" becomes "thumbs up
+*in the top-left corner, two feet from the camera*". Step back and it breaks.
+
+So before training we **normalize** every hand:
+
+1. **Center** — subtract the wrist position, so the hand sits at (0,0,0).
+   Now it doesn't matter *where* in the frame your hand is.
+2. **Scale** — divide by the hand's size, so a hand near the camera and the
+   same hand across the room produce identical numbers.
+3. **Rotate** (optional) — turn the hand upright, so a tilted "thumbs up"
+   still counts as a thumbs up.
+
+That lives in `js/normalize.js` as one clearly commented function you can read
+and tweak. It is the single most important file in the project.
 
 ---
 
-## Honest scope (read this)
+## Running it
 
-- **"Unlimited categories."** The app puts no cap on how many gesture categories you create — add as many as you can teach. But there is no meaningful set of *700,000* distinct hand gestures, and a from-scratch model would need millions of labeled examples to support that. For reference, ImageNet uses ~1,000 classes. **Start with a handful of well-chosen categories and grow.**
-- **k-NN is "instant training" but simple.** It's perfect for live demos and small/medium datasets and needs zero training time. For a production robot policy, export the dataset and train a real model (see below).
-- **Camera/mic need a secure context.** Use `https://` (GitHub Pages) or `http://localhost`. Opening the file directly with `file://` will block the camera.
-- **Claude artifact caveat.** The single HTML file works as a Claude artifact, but the artifact sandbox often blocks camera/microphone. For full use, run it from GitHub Pages or localhost.
+It is a static site, so any web server will do. You cannot just double-click
+`index.html` — browsers refuse camera access on `file://` URLs.
 
----
-
-## Run it
-
-### Option A — locally
 ```bash
-# from this folder; any static server works
+# Python (already on most machines)
 python3 -m http.server 8000
-# then open http://localhost:8000
+
+# or Node
+npx serve .
 ```
 
-### Option B — GitHub Pages
-Push this repo, then in **Settings → Pages** set the source to the `main` branch (root). Your app goes live at `https://<user>.github.io/<repo>/`.
+Then open <http://localhost:8000>.
 
-### Option C — Vercel (recommended for sharing)
-This repo is a zero-config static site. Import it at [vercel.com/new](https://vercel.com/new),
-pick this GitHub repo, and deploy — you get a public `*.vercel.app` URL that anyone can use,
-and it redeploys automatically on every push (including bot updates to `dataset.json`).
+> Cameras only work on `https://` or on `localhost`. Both of the above are
+> localhost, so you're fine.
 
-### Option D — Claude artifact
-Open [claude.ai](https://claude.ai), paste the contents of `index.html`, and ask Claude to render it as an HTML artifact. (Camera may be sandboxed — see caveat above.)
+### Deploying
+
+Push to `main`. The workflow in `.github/workflows/deploy.yml` publishes to
+GitHub Pages automatically. In your repo settings, set
+**Settings → Pages → Source** to **GitHub Actions**.
+
+Because every path in the HTML is relative (`./js/main.js`, not `/js/main.js`),
+the site works at `https://user.github.io/mimic-studio/` with no base-path
+configuration needed.
 
 ---
 
-## Dataset format
+## Project layout
 
-`Export dataset (.json)` produces:
-
-```jsonc
-{
-  "meta": { "app": "Mimic Studio", "version": 1, "exported": "…", "schema": "…" },
-  "gestures": {
-    "grab":  [ { "vec": [/* 63 numbers: 21 × (x,y,z) normalized */], "hand": "Right", "t": 1733000000000 } ],
-    "open":  [ /* … */ ]
-  },
-  "speech": [ { "text": "pick it up", "label": "grab", "t": 1733000000000 } ],
-  "motion": [ { "acc": {"x":..,"y":..,"z":..}, "rot": {...}, "ori": {...}, "label": "grab", "t": ... } ]
-}
 ```
-
-### From dataset → real model (example)
-```python
-import json, numpy as np
-from sklearn.neural_network import MLPClassifier
-
-data = json.load(open("mimic-dataset.json"))
-X, y = [], []
-for label, samples in data["gestures"].items():
-    for s in samples:
-        X.append(s["vec"]); y.append(label)
-X, y = np.array(X), np.array(y)
-
-clf = MLPClassifier(hidden_layer_sizes=(128, 64), max_iter=500).fit(X, y)
-print("classes:", clf.classes_)
+index.html          the studio — camera, recording, training
+browse.html         community gesture library                (Stage 4)
+css/style.css       dark theme
+js/
+  camera.js         webcam on/off + friendly error messages
+  landmarks.js      loads the MediaPipe hand + pose models
+  draw.js           paints the skeleton overlay
+  normalize.js      landmark normalization                   (Stage 3)
+  recorder.js       gesture recording                        (Stage 2)
+  trainer.js        TensorFlow.js model + live training graph (Stage 3)
+  datasets.js       save / load / merge gesture JSON files    (Stage 3)
+  community.js      shared gesture library + sharing flow     (Stage 4)
+gestures/           community gesture JSON files              (Stage 4)
+legacy/             archived data from the previous version
 ```
-From there it's standard supervised learning / behavior cloning — feed the time-stamped, labeled samples into whatever policy or classifier your robot stack uses.
 
 ---
 
-## How it works (1 paragraph)
+## Build stages
 
-Each video frame, MediaPipe returns 21 hand landmarks. They're re-centered on the wrist and scaled by the farthest landmark distance to make a 63-dimensional, position/size-invariant vector. In **Collect** mode those vectors are stored under the active category. In **Recognize** mode the live vector is compared (Euclidean distance) to every stored sample; the 5 nearest vote, inverse-distance-weighted, and the winner is shown with a confidence score. Speech and motion are captured separately and tagged with the same category labels so a single command can span all three modalities.
+- [x] **Stage 1 — Camera & skeleton.** Webcam, both hands, full body, overlay.
+- [ ] **Stage 2 — Recording.** Name a gesture, record samples, see the counts.
+- [ ] **Stage 3 — Training.** Normalize, train on the GPU, live loss/accuracy
+      graph, then live prediction.
+- [ ] **Stage 4 — Sharing.** Load community gestures, contribute your own.
 
 ---
 
-## AI sort with Claude (vision)
+## `legacy/`
 
-Capture camera frames and let **Claude** (`claude-opus-4-8`, vision) label and group them into gesture categories — "send a lot of pictures, Claude sorts it out."
+The previous version of this project collected **6,904 hand samples across 9
+gestures** and trained a model to 98% held-out accuracy. That data is kept in
+`legacy/` and will be converted into the community gesture library in Stage 4,
+so the shared library ships with real content instead of being empty.
 
-**Setup (one-time, needs the Vercel deployment):**
-1. In **Vercel → Project → Settings → Environment Variables** add: `ANTHROPIC_API_KEY = sk-ant-…`
-2. Redeploy. The serverless function lives at [`api/sort.js`](api/sort.js); it uses the official `@anthropic-ai/sdk` with structured JSON output.
+The old normalization was center + scale (no rotation), which is exactly steps
+1 and 2 above — so the archived samples are directly reusable.
 
-In the app: **Capture frame** (or **Auto-capture**) → **Sort captures with Claude**. Frames are downscaled to 320×240 and sent in batches of 20; results are grouped by predicted label with confidence. It won't work on GitHub Pages or as a Claude artifact — those are static, with no server to hold your key.
+---
 
-### Honest throughput reality — *not* 10,000 images/sec
-A vision LLM is the wrong tool for 10,000 images/second, and no API can do that:
-- **Latency:** each request is ~1–5s, not microseconds. Cameras capture ~30–60 fps, not 10,000.
-- **Rate limits:** the API caps requests- and tokens-per-minute — nowhere near 600,000,000 images/minute.
-- **Cost:** each image is ~hundreds–1,500 input tokens; 10k/sec would be millions of dollars per minute.
-
-What works: capture locally, **sample** a subset, and batch them. For a *large* backlog, use the **[Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing)** — up to 100,000 requests per batch, ~50% cheaper, results within ~1 hour. That's the real "send a big pile, Claude sorts it out afterward" path; the in-app button is the live, interactive version. For real-time per-frame recognition, keep using the on-device k-NN — Claude is best for labeling/auditing/auto-categorizing batches, not the realtime loop.
-
-## Training a real model
-
-The live app uses k-NN (instant, no training). To get a *trained* model there are two paths, both included:
-
-### In the browser, on your GPU — [`train.html`](train.html)
-Open the **GPU Trainer**, and it trains a neural net on the shared dataset using **TensorFlow.js (WebGL = your GPU)**. Live dashboard with:
-- **how much data has been trained** (samples seen, passes over the data, held-out accuracy),
-- a **learning-speed** slider you can move *while it trains*,
-- a **goal line** to aim for — it keeps training until you press **Stop** (no auto-stop),
-- per-gesture accuracy, and **Download / Save** the trained model.
-
-The browser trainer needs the tab open to keep running. To train **unattended** (e.g. while you're away), use `train_sweep.py` below — it runs on its own and keeps the best model.
-
-Nothing is uploaded — training and the model stay on your machine.
-
-### Offline, reproducible — [`train.py`](train.py) + [`cv.py`](cv.py) + [`train_sweep.py`](train_sweep.py) (pure numpy, no deps)
-```bash
-python3 train.py              # trains an MLP once, writes model.json + metrics.json
-python3 cv.py                 # 5-fold cross-validation (trustworthy estimate)
-python3 train_sweep.py        # unattended: searches settings for hours, keeps the best model
-```
-
-`train_sweep.py` is the "keep training while I'm away" tool: it trains model after model on a fixed held-out split, writes live progress to `sweep_status.json`, and overwrites `model.json`/`metrics.json` only when it finds a **better** model. It runs on CPU, so it keeps going without a browser open. (The dataset is fixed — this finds the best model *for the data you have*; to raise the ceiling, record more gestures and rerun.)
-
-**Measured on the current dataset (6,904 samples, 9 gestures, held-out test):**
-
-| model | accuracy |
-|---|---|
-| k-NN (k=5) — what the live app uses | ~90% (5-fold CV) |
-| trained MLP `128→64` | **~98%** held-out |
-
-Nearly all remaining error is the catch-all `random` class being confused with real gestures — expected. To push past this, record **more and more varied** real samples (especially for whichever gestures the per-class report shows as weak) and retrain. `model.json` / `metrics.json` are the saved outputs.
-
-## Contributing — the shared dataset
-
-This is a **community dataset**. The app loads the shared `dataset.json` so you start from
-everyone's motions; when you record more and hit **Contribute**, it opens a Pull Request that
-adds a file under `contributions/`. Once merged, a GitHub Action rebuilds `dataset.json`
-automatically — no backend, no tokens.
-
-```
-record in app → contributions/<you>.json (PR) → merge → Action rebuilds dataset.json → everyone gets it
-```
-
-Full guide: [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## License
+## Licence
 
 MIT — see [LICENSE](LICENSE).
