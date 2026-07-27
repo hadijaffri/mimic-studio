@@ -216,6 +216,16 @@ body {
 }
 .toggle input { width: 17px; height: 17px; accent-color: var(--accent); cursor: pointer; }
 
+.toggle-select { gap: 8px; }
+.select-inline { padding: 6px 9px; font-size: 13px; }
+
+.draw-count {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  min-height: 1.2em;   /* reserve the space so the layout never jumps */
+}
+
 /* ---------- right panel ---------- */
 .panel {
   background: var(--bg-raised);

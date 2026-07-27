@@ -111,5 +111,37 @@ ok("tilt is cancelled by rotation", maxDiff(rotatedDirect, tilted) < 1e-9,
 ok("...and is NOT cancelled without it",
    maxDiff(vec, normalizeHand(rotateHandZ(hand, 47))) > 0.1);
 
+console.log("\n=== draw.js detail levels ===");
+
+const { countMarks } = await import("../js/draw.js");
+
+// Stand-ins the same size as MediaPipe's real connection tables.
+const conns = {
+  HAND_CONNECTIONS: Array(21).fill({ start: 0, end: 1 }),
+  POSE_CONNECTIONS: Array(35).fill({ start: 0, end: 1 }),
+};
+const mkHands = (n) => ({
+  hands: { landmarks: Array.from({ length: n }, () => Array(21).fill(P(0, 0, 0))) },
+  pose: null,
+});
+
+const d1 = countMarks(mkHands(1), conns, { detail: 1, showBends: true });
+const d2 = countMarks(mkHands(1), conns, { detail: 2, showBends: true });
+const d3 = countMarks(mkHands(1), conns, { detail: 3, showBends: true });
+
+ok("detail 1 draws no extra dots", d1.drawn === 0);
+ok("detail rises 1 < 2 < 3", d1.drawn < d2.drawn && d2.drawn < d3.drawn);
+ok("lattice adds 14 lines per hand", d2.lines - d1.lines === 14);
+ok("detail 2 dot count is right", d2.drawn === 21 * 2 + 14 * 1, String(d2.drawn));
+ok("detail 3 dot count is right", d3.drawn === 21 * 4 + 14 * 3 + 15 * 10, String(d3.drawn));
+
+// The honesty check: decoration must never be counted as tracked data.
+ok("real stays 21 per hand at every detail level",
+   d1.real === 21 && d2.real === 21 && d3.real === 21);
+ok("two hands exactly doubles everything",
+   countMarks(mkHands(2), conns, { detail: 3 }).real === 42);
+ok("nothing tracked -> nothing drawn",
+   countMarks({ hands: null, pose: null }, conns, { detail: 3 }).total === 0);
+
 console.log(`\n${pass} passed, ${fail} failed\n`);
 process.exit(fail ? 1 : 0);

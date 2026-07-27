@@ -77,7 +77,17 @@
         <input type="checkbox" id="toggle-mirror" checked />
         <span>Mirror</span>
       </label>
+      <label class="toggle toggle-select">
+        <span>Detail</span>
+        <select id="detail-level" class="select select-inline">
+          <option value="1">Simple</option>
+          <option value="2" selected>Detailed</option>
+          <option value="3">Maximum</option>
+        </select>
+      </label>
     </div>
+
+    <p class="draw-count muted" id="draw-count"></p>
 
     <!-- ---------- live joint bend readout ---------- -->
     <div class="panel bend-panel">
@@ -187,6 +197,20 @@
         <p>
           <b>15 joints per hand</b> bend (3 per finger). The wrist and the five
           fingertips don't, so they have no ring.
+        </p>
+
+        <h3>Why are there more dots than landmarks?</h3>
+        <p>
+          The camera only ever finds <b>21</b> dots per hand — that never
+          changes. The extra dots are <b>drawn</b> between them: small markers
+          spaced evenly along each bone, plus sideways
+          <b>lattice</b> lines webbing the fingers into a mesh, plus a ring of
+          tick marks around each joint.
+        </p>
+        <p>
+          It's easier to see a twist or a bend in a dense mesh than in a bare
+          stick figure. The <b>Detail</b> control changes only what you see —
+          recording and training always use the original 21 points.
         </p>
       </div>
     </div>

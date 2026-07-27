@@ -17,7 +17,7 @@ import {
   HAND_CONNECTIONS,
   POSE_CONNECTIONS,
 } from "./landmarks.js";
-import { resizeCanvas, drawFrame, drawRecordingIndicator, clear } from "./draw.js";
+import { resizeCanvas, drawFrame, drawRecordingIndicator, countMarks, clear } from "./draw.js";
 import { fingerCurls } from "./angles.js";
 import { Recorder } from "./recorder.js";
 
@@ -36,6 +36,8 @@ const el = {
   togglePose:   document.getElementById("toggle-pose"),
   toggleBends:  document.getElementById("toggle-bends"),
   toggleMirror: document.getElementById("toggle-mirror"),
+  detailLevel:  document.getElementById("detail-level"),
+  drawCount:    document.getElementById("draw-count"),
   statFps:      document.getElementById("stat-fps"),
   statHands:    document.getElementById("stat-hands"),
   statPose:     document.getElementById("stat-pose"),
@@ -246,6 +248,7 @@ function loop() {
 
   drawFrame(ctx, state.latest, { HAND_CONNECTIONS, POSE_CONNECTIONS }, {
     showBends: el.toggleBends.checked,
+    detail: Number(el.detailLevel.value),
   });
 
   if (recorder.recording) {
@@ -255,7 +258,24 @@ function loop() {
   updateReadout(state.latest);
   updateCurlBars(state.latest);
   updateRecordOverlay();
+  updateDrawCount();
   tickFps();
+}
+
+/** "21 tracked + 148 drawn" — keeps real data and decoration clearly separate. */
+function updateDrawCount() {
+  const marks = countMarks(state.latest, { HAND_CONNECTIONS, POSE_CONNECTIONS }, {
+    showBends: el.toggleBends.checked,
+    detail: Number(el.detailLevel.value),
+  });
+
+  if (!marks.real) {
+    el.drawCount.textContent = "";
+    return;
+  }
+  el.drawCount.textContent =
+    `${marks.real} points tracked by the camera · ` +
+    `${marks.drawn} extra dots and ${marks.lines} lines drawn on top`;
 }
 
 /* ==========================================================================
